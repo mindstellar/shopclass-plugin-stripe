@@ -1,0 +1,177 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Stripe Payment 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/mindstellar/shopclass-plugin-stripe/issues\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: \n"
+
+#: src/StripeGateway.php:149
+msgid "%d credits"
+msgstr ""
+
+#: src/Plugin.php:248
+msgid "A Stripe payment could not be recorded after several tries."
+msgstr ""
+
+#: settings.php:67
+msgid "Account"
+msgstr ""
+
+#: settings.php:104
+msgid "Card (Stripe)"
+msgstr ""
+
+#: src/StripeGateway.php:590
+msgid "Card payment could not be started. Please try again later."
+msgstr ""
+
+#: src/Plugin.php:215
+msgid "Check pending Stripe orders"
+msgstr ""
+
+#: settings.php:98
+msgid "Checkout"
+msgstr ""
+
+#: settings.php:113
+msgid "Comma-separated codes. Leave empty to use the billing currency."
+msgstr ""
+
+#: settings.php:111
+msgid "Currencies"
+msgstr ""
+
+#: settings.php:92
+msgid "Endpoint URL"
+msgstr ""
+
+#: src/Plugin.php:250
+msgid "Error: %s"
+msgstr ""
+
+#: settings.php:80
+msgid "From Developers > API keys, with \"Viewing test data\" on. Leave blank to keep the saved key."
+msgstr ""
+
+#: settings.php:82
+msgid "From Developers > API keys. A restricted key needs write access to Checkout Sessions and Refunds, and read access to Events and PaymentIntents."
+msgstr ""
+
+#: settings.php:54
+msgid "In Stripe, open Developers > Webhooks, add an endpoint with this URL, and select these events:"
+msgstr ""
+
+#: settings.php:76
+msgid "Live"
+msgstr ""
+
+#: settings.php:82
+msgid "Live secret key"
+msgstr ""
+
+#: settings.php:83
+msgid "Live webhook secret"
+msgstr ""
+
+#: settings.php:72
+msgid "Mode"
+msgstr ""
+
+#: settings.php:103
+msgid "Name at checkout"
+msgstr ""
+
+#: src/Plugin.php:182
+msgid "Order #%d is paid."
+msgstr ""
+
+#: src/Plugin.php:187
+msgid "Order #%d was not paid."
+msgstr ""
+
+#: src/Plugin.php:185
+msgid "Payment for order #%d is processing. Credits are added once Stripe confirms it."
+msgstr ""
+
+#: src/Plugin.php:183
+msgid "Payment for order #%d received. Credits added."
+msgstr ""
+
+#: src/Plugin.php:212
+msgid "Record a Stripe payment"
+msgstr ""
+
+#: src/Plugin.php:251
+msgid "Retry it under Tools > System info > Jobs (job #%d), and check the order in Billing > Orders."
+msgstr ""
+
+#: settings.php:62
+msgid "Stripe Payment"
+msgstr ""
+
+#: settings.php:122
+msgid "Stripe does not take \"%s\""
+msgstr ""
+
+#: src/Plugin.php:249
+msgid "Stripe event: %s"
+msgstr ""
+
+#: src/Plugin.php:281
+msgid "Stripe is in test mode: no real money is taken. Switch to live mode before the site takes payments."
+msgstr ""
+
+#: src/Plugin.php:283
+msgid "Stripe settings"
+msgstr ""
+
+#: src/Plugin.php:262
+msgid "Stripe: a payment needs checking"
+msgstr ""
+
+#: settings.php:64
+msgid "Take card payments for credit packages through Stripe Checkout. Buyers pay on a page hosted by Stripe, so no card data reaches this site."
+msgstr ""
+
+#: settings.php:75
+msgid "Test"
+msgstr ""
+
+#: settings.php:73
+msgid "Test mode uses your test keys and Stripe's test cards. No real money moves."
+msgstr ""
+
+#: settings.php:80
+msgid "Test secret key"
+msgstr ""
+
+#: settings.php:81
+msgid "Test webhook secret"
+msgstr ""
+
+#: src/Plugin.php:146
+msgid "That order is not available."
+msgstr ""
+
+#: settings.php:83
+msgid "The signing secret of your live webhook endpoint. Leave blank to keep the saved one."
+msgstr ""
+
+#: settings.php:81
+msgid "The signing secret of your test webhook endpoint. Leave blank to keep the saved one."
+msgstr ""
+
+#: settings.php:58
+msgid "Then copy the endpoint's signing secret into the webhook secret field for the same mode."
+msgstr ""
+
+#: settings.php:47
+msgid "This should start with \"%s\""
+msgstr ""
+
+#: settings.php:87
+msgid "Webhook"
+msgstr ""

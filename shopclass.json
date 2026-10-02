@@ -1,0 +1,14 @@
+{
+  "$schema": "../schema/package.schema.json",
+  "slug": "stripe",
+  "type": "plugin",
+  "categories": ["payments"],
+  "tags": ["billing", "payments", "stripe", "cards", "checkout"],
+  "short_description": "Take card payments for credit packages through Stripe Checkout, with signed webhooks and refunds from the admin.",
+  "icon": "assets/icon.svg",
+  "license": "GPL-3.0-or-later",
+  "support": {
+    "issues": "https://github.com/mindstellar/shopclass-plugin-stripe/issues",
+    "docs": "https://github.com/mindstellar/shopclass-plugin-stripe#readme"
+  }
+}

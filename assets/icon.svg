@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Stripe payments">
+  <rect width="128" height="128" rx="24" fill="#635bff"/>
+  <rect x="22" y="36" width="84" height="56" rx="10" fill="#fff"/>
+  <rect x="22" y="48" width="84" height="12" fill="#635bff" opacity=".35"/>
+  <rect x="32" y="72" width="30" height="8" rx="4" fill="#635bff"/>
+</svg>
