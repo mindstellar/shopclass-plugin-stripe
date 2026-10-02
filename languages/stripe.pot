@@ -8,7 +8,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Language: \n"
 
-#: src/StripeGateway.php:149
+#: src/StripeGateway.php:153
 msgid "%d credits"
 msgstr ""
 
@@ -24,7 +24,7 @@ msgstr ""
 msgid "Card (Stripe)"
 msgstr ""
 
-#: src/StripeGateway.php:590
+#: src/StripeGateway.php:647
 msgid "Card payment could not be started. Please try again later."
 msgstr ""
 
@@ -110,6 +110,10 @@ msgstr ""
 
 #: settings.php:62
 msgid "Stripe Payment"
+msgstr ""
+
+#: index.php:49
+msgid "Stripe Payment needs a newer Shopclass 6.4.0 and is switched off. Update Shopclass to use it."
 msgstr ""
 
 #: settings.php:122

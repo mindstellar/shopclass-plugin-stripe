@@ -42,6 +42,17 @@ spl_autoload_register(static function (string $class): void {
 osc_register_plugin(osc_plugin_path(__FILE__), array(Plugin::class, 'install'));
 osc_add_hook(osc_plugin_path(__FILE__) . '_uninstall', array(Plugin::class, 'uninstall'));
 
+// Early 6.4.0 release candidates lack the billing API this plugin uses, so it stays off there.
+if (!interface_exists('mindstellar\\billing\\DashboardLinkGateway')) {
+    osc_add_hook('admin_page_header', static function (): void {
+        echo '<div class="flashmessage flashmessage-warning" role="status">'
+            . osc_esc_html(__('Stripe Payment needs a newer Shopclass 6.4.0 and is switched off. Update Shopclass to use it.', 'stripe'))
+            . '</div>';
+    }, 10);
+
+    return;
+}
+
 osc_register_settings_page(Plugin::PAGE, require __DIR__ . '/settings.php');
 osc_add_hook(osc_plugin_path(__FILE__) . '_configure', static function () {
     osc_redirect_to(osc_settings_page_url(Plugin::PAGE));
