@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+### Changed
+- The download is smaller: the market screenshots are no longer inside the zip.
+
 ## 0.1.0
 
 ### New
