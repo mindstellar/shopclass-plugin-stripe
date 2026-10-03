@@ -1,13 +1,13 @@
 # Stripe Payment
 
-Take card payments for Shopclass credit packages through
+Take card payments for ShopClass credit packages through
 [Stripe Checkout](https://stripe.com/payments/checkout). Buyers pay on Stripe's hosted
 page, so no card data reaches your site. A signed webhook marks the order paid, and
 core adds the credits.
 
 ## Requirements
 
-- Shopclass 6.4.0 or later, with billing turned on
+- ShopClass 6.4.0 or later, with billing turned on
 - PHP 8.0 or later, with the curl extension
 - Cron running, for retries and the daily check of pending orders
 
