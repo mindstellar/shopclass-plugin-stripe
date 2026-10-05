@@ -10,6 +10,10 @@
  */
 
 require __DIR__ . '/lib/bootstrap.php';
+// Shopclass 7.0 registries extend a base class; earlier cores have none.
+if (is_file(core_path() . '/oc-includes/osclass/classes/base/Registry.php')) {
+    require_once core_path() . '/oc-includes/osclass/classes/base/Registry.php';
+}
 require_once core_path() . '/oc-includes/osclass/classes/billing/PaymentGatewayRegistry.php';
 require_once core_path() . '/oc-includes/osclass/classes/job/Job.php';
 

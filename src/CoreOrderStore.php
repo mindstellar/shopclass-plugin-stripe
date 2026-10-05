@@ -12,36 +12,45 @@
 namespace mindstellar\stripe;
 
 use mindstellar\billing\Order;
-use mindstellar\billing\Orders;
 
 /**
- * Orders through core's own Orders model.
+ * Orders through core's own order store.
  */
 final class CoreOrderStore implements OrderStore
 {
+    /**
+     * Core's order store: OrderStore from Shopclass 7.0, Orders before it.
+     *
+     * @return class-string
+     */
+    private static function orders(): string
+    {
+        return class_exists('mindstellar\\billing\\OrderStore') ? 'mindstellar\\billing\\OrderStore' : 'mindstellar\\billing\\Orders';
+    }
+
     public function find(int $id): ?Order
     {
-        return Orders::find($id);
+        return self::orders()::find($id);
     }
 
     public function findByRef(string $ref): ?Order
     {
-        return Orders::findByGatewayRef(StripeGateway::ID, $ref);
+        return self::orders()::findByGatewayRef(StripeGateway::ID, $ref);
     }
 
     public function attachSession(int $orderId, string $sessionId): bool
     {
-        return Orders::attachRef($orderId, StripeGateway::ID, $sessionId);
+        return self::orders()::attachRef($orderId, StripeGateway::ID, $sessionId);
     }
 
     public function setMeta(int $orderId, string $key, $value): bool
     {
-        return Orders::setMeta($orderId, $key, $value);
+        return self::orders()::setMeta($orderId, $key, $value);
     }
 
     public function markFailed(int $orderId): void
     {
-        Orders::settle($orderId, Order::STATUS_FAILED);
+        self::orders()::settle($orderId, Order::STATUS_FAILED);
     }
 
     public function stalePending(int $seconds, int $limit): array
@@ -49,7 +58,7 @@ final class CoreOrderStore implements OrderStore
         $cutoff = time() - $seconds;
         $out    = array();
         $filter = array('status' => Order::STATUS_PENDING, 'gateway' => StripeGateway::ID);
-        foreach (Orders::search($filter, $limit) as $order) {
+        foreach (self::orders()::search($filter, $limit) as $order) {
             $ref = (string) $order->getExternalRef();
             if (str_starts_with($ref, 'cs_') && strtotime($order->getDate()) <= $cutoff) {
                 $out[] = $order;
