@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+### Changed
+- Works with Shopclass 7.0 as well as 6.4.
+
 ## 0.1.1
 
 ### Changed
