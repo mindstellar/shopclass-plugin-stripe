@@ -68,14 +68,16 @@ require_once __DIR__ . '/../lib/fakes.php';
 use mindstellar\billing\Billing;
 use mindstellar\billing\CallbackResult;
 use mindstellar\billing\Order;
-use mindstellar\billing\Orders;
 use mindstellar\billing\PaymentGatewayRegistry;
 use mindstellar\billing\Wallet;
 use mindstellar\stripe\CoreOrderStore;
 use mindstellar\stripe\Plugin;
 use mindstellar\stripe\StripeGateway;
 
-$status = static fn (Order $order): string => Orders::find($order->getId())->getStatus();
+// Core's order store: OrderStore from Shopclass 7.0, Orders before it.
+$orders = class_exists('mindstellar\\billing\\OrderStore') ? 'mindstellar\\billing\\OrderStore' : 'mindstellar\\billing\\Orders';
+
+$status = static fn (Order $order): string => $orders::find($order->getId())->getStatus();
 $ledger = static function (Order $order) use ($admin): int {
     return (int) $admin->query(
         'SELECT COUNT(*) c FROM ' . DB_TABLE_PREFIX . "t_billing_ledger WHERE s_ref_type = 'order' AND i_ref_id = " . $order->getId()
@@ -130,7 +132,7 @@ PaymentGatewayRegistry::instance()->register($gateway);
 check('offered at checkout for USD', isset(PaymentGatewayRegistry::instance()->available('USD')[StripeGateway::ID]));
 
 $buyer    = seed_user($admin, 'buyer', 'buyer@example.test');
-$newOrder = static fn (int $amount = 9_990_000, string $currency = 'USD'): Order => Orders::create($buyer, StripeGateway::ID, $amount, $currency, 100);
+$newOrder = static fn (int $amount = 9_990_000, string $currency = 'USD'): Order => $orders::create($buyer, StripeGateway::ID, $amount, $currency, 100);
 $webhook  = static function (array $event): CallbackResult {
     deliver($event);
 
@@ -144,18 +146,18 @@ $order = $newOrder();
 $http->on('POST', 'checkout/sessions', 200, session($order));
 $intent = $gateway->createCheckout($order);
 check('the buyer is sent to Stripe', $intent->isRedirect());
-pin('the session id is stored on the order', 'cs_test_abc' . $order->getId(), Orders::find($order->getId())->getExternalRef());
+pin('the session id is stored on the order', 'cs_test_abc' . $order->getId(), $orders::find($order->getId())->getExternalRef());
 pin('which is still pending', Order::STATUS_PENDING, $status($order));
 pin('the buyer\'s e-mail is sent along', 'buyer@example.test', $http->lastParams()['customer_email'] ?? null);
 
-$intent = $gateway->createCheckout(Orders::find($order->getId()));
+$intent = $gateway->createCheckout($orders::find($order->getId()));
 check('a retry that gets back the same session still goes to Stripe', $intent->getPayload() === session($order)['url']);
 
 $other = $newOrder();
 $intent = $gateway->createCheckout($other); // Stripe answers with the first order's session
 pin('core refuses a session another order holds, so the buyer is not sent to pay', 'https://shop.test/buy', $intent->getPayload());
 pin('that order is closed', Order::STATUS_FAILED, $status($other));
-pin('and the first order keeps its session', 'cs_test_abc' . $order->getId(), Orders::find($order->getId())->getExternalRef());
+pin('and the first order keeps its session', 'cs_test_abc' . $order->getId(), $orders::find($order->getId())->getExternalRef());
 
 harness_section('webhook: paid once, replay credits nothing');
 
@@ -164,11 +166,11 @@ $r    = $webhook($paid);
 check('the route answers 200', !$r->isRetryable());
 pin('the credits land', 100, Wallet::balance($buyer));
 pin('the order is paid', Order::STATUS_PAID, $status($order));
-pin('the payment intent is stored', 'pi_test_' . $order->getId(), Orders::find($order->getId())->getExternalRef());
-pin('the admin order screen links to it in Stripe', 'https://dashboard.stripe.com/test/payments/pi_test_' . $order->getId(), $gateway->dashboardUrl(Orders::find($order->getId())));
-pin('the order records it was paid in test mode', false, Orders::find($order->getId())->meta(StripeGateway::META_LIVEMODE));
+pin('the payment intent is stored', 'pi_test_' . $order->getId(), $orders::find($order->getId())->getExternalRef());
+pin('the admin order screen links to it in Stripe', 'https://dashboard.stripe.com/test/payments/pi_test_' . $order->getId(), $gateway->dashboardUrl($orders::find($order->getId())));
+pin('the order records it was paid in test mode', false, $orders::find($order->getId())->meta(StripeGateway::META_LIVEMODE));
 $liveGateway = new StripeGateway(fake_config(array('mode' => 'live')), $http, $store);
-pin('after a switch to live, its link still opens the test dashboard', 'https://dashboard.stripe.com/test/payments/pi_test_' . $order->getId(), $liveGateway->dashboardUrl(Orders::find($order->getId())));
+pin('after a switch to live, its link still opens the test dashboard', 'https://dashboard.stripe.com/test/payments/pi_test_' . $order->getId(), $liveGateway->dashboardUrl($orders::find($order->getId())));
 
 $webhook($paid);
 $webhook(event('checkout.session.async_payment_succeeded', session($order), false, 'evt_test_2'));
@@ -219,7 +221,7 @@ pin('the fresh one is left alone', Order::STATUS_PENDING, $status($fresh));
 harness_section('refund, then its webhook');
 
 $http->on('POST', 'refunds', 200, array('id' => 're_1', 'status' => 'succeeded'));
-$paidOrder = Orders::find($order->getId());
+$paidOrder = $orders::find($order->getId());
 $r         = $gateway->refund($paidOrder);
 pin('Stripe accepts the refund', CallbackResult::OUTCOME_REFUNDED, $r->getOutcome());
 pin('refunded from the stored payment intent', 'pi_test_' . $order->getId(), $http->lastParams()['payment_intent']);

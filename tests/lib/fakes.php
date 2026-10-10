@@ -89,7 +89,7 @@ final class MemoryOrders implements OrderStore
         return null;
     }
 
-    /** As core's Orders::attachRef(): pending only, unique per gateway, false when nothing changed. */
+    /** As core's OrderStore::attachRef(): pending only, unique per gateway, false when nothing changed. */
     public function attachSession(int $orderId, string $sessionId): bool
     {
         $order = $this->orders[$orderId] ?? null;
