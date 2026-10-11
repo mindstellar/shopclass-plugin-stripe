@@ -31,6 +31,16 @@ foreach (array('PaymentGateway', 'RefundableGateway', 'DashboardLinkGateway', 'C
     require_once core_path() . '/oc-includes/osclass/classes/billing/' . $class . '.php';
 }
 
+// Other core classes the plugin names, such as PaymentGatewayRegistry, load from the same checkout.
+spl_autoload_register(static function (string $class): void {
+    foreach (array('mindstellar\\billing\\' => 'billing', 'mindstellar\\base\\' => 'base', 'mindstellar\\currency\\' => 'currency') as $prefix => $dir) {
+        $file = core_path() . '/oc-includes/osclass/classes/' . $dir . '/' . substr($class, strlen($prefix)) . '.php';
+        if (strncmp($class, $prefix, strlen($prefix)) === 0 && is_file($file)) {
+            require $file;
+        }
+    }
+});
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'mindstellar\\stripe\\';
     if (strncmp($class, $prefix, strlen($prefix)) === 0) {

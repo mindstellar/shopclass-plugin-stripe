@@ -38,6 +38,9 @@ function osc_job_register_handler($type, $handler)
 function osc_job_describe($type, $name, $detail = null)
 {
 }
+function osc_run_hook($hook, ...$args)
+{
+}
 
 /** A gateway whose settle step writes the outcome to the in-memory orders, as core would. */
 function settling_gateway(FakeHttp $http, MemoryOrders $orders): StripeGateway

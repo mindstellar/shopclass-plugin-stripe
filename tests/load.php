@@ -46,7 +46,12 @@ harness_section('what the plugin registers');
 pin('install runs Plugin::install', array('stripe/index.php', array(Plugin::class, 'install')), $GLOBALS['__install']);
 pin('uninstall runs Plugin::uninstall', array(array(Plugin::class, 'uninstall')), $GLOBALS['__hooks']['stripe/index.php_uninstall'] ?? null);
 check('the configure link has a handler', isset($GLOBALS['__hooks']['stripe/index.php_configure']));
-pin('the gateway registers on init and on the webhook route', array(array(array(Plugin::class, 'register')), array(array(Plugin::class, 'register'))), array($GLOBALS['__hooks']['init'] ?? null, $GLOBALS['__hooks']['init_billing_non_secure'] ?? null));
+if (defined(\mindstellar\billing\PaymentGatewayRegistry::class . '::HOOK')) {
+    pin('the gateway registers when a page first asks for payment methods', array(array(Plugin::class, 'register')), $GLOBALS['__hooks']['register_payment_gateways'] ?? null);
+    pin('and not on every page', array(null, null), array($GLOBALS['__hooks']['init'] ?? null, $GLOBALS['__hooks']['init_billing_non_secure'] ?? null));
+} else {
+    pin('before 7.0 the gateway registers on init and on the webhook route', array(array(array(Plugin::class, 'register')), array(array(Plugin::class, 'register'))), array($GLOBALS['__hooks']['init'] ?? null, $GLOBALS['__hooks']['init_billing_non_secure'] ?? null));
+}
 pin('the settings page is declared under the plugin id', array('stripe'), array_keys($GLOBALS['__settings']));
 $names = array();
 foreach ($GLOBALS['__settings']['stripe']['groups'] as $group) {

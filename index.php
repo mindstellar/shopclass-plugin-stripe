@@ -22,6 +22,7 @@ Support URI: https://github.com/mindstellar/shopclass-plugin-stripe/issues
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+use mindstellar\billing\PaymentGatewayRegistry;
 use mindstellar\stripe\Plugin;
 
 if (!defined('ABS_PATH')) {
@@ -58,9 +59,14 @@ osc_add_hook(osc_plugin_path(__FILE__) . '_configure', static function () {
     osc_redirect_to(osc_settings_page_url(Plugin::PAGE));
 });
 
-// The gateway, while billing is on. The webhook route registers it too, in case init has not run.
-osc_add_hook('init', array(Plugin::class, 'register'));
-osc_add_hook('init_billing_non_secure', array(Plugin::class, 'register'));
+// The gateway, while billing is on, built the first time a page asks for payment methods. Before
+// Shopclass 7.0 it registers on init, and on the webhook route, which does not run init.
+if (defined(PaymentGatewayRegistry::class . '::HOOK')) {
+    osc_add_hook(PaymentGatewayRegistry::HOOK, array(Plugin::class, 'register'));
+} else {
+    osc_add_hook('init', array(Plugin::class, 'register'));
+    osc_add_hook('init_billing_non_secure', array(Plugin::class, 'register'));
+}
 
 // The buyer comes back here from Stripe Checkout.
 osc_add_route_hook(Plugin::ROUTE_RETURN, 'stripe/return/([0-9]+)', 'stripe/return/{order}');

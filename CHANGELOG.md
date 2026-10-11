@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- On Shopclass 7.0 the gateway is built only on pages that show a payment, not on every page.
+
 ## 0.1.2
 
 ### Changed
