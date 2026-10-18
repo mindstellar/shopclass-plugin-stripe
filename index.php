@@ -2,8 +2,8 @@
 /*
 Plugin Name: Stripe Payment
 Plugin URI: https://github.com/mindstellar/shopclass-plugin-stripe
-Description: Take card payments for credit packages through Stripe Checkout. Buyers pay on Stripe's hosted page; a signed webhook marks the order paid. Refunds from the admin.
-Version: 0.1.4
+Description: Take card payments for shop orders and credit packages through Stripe Checkout. Buyers pay on Stripe's hosted page; a signed webhook marks the order paid. Refunds from the admin.
+Version: 0.1.5
 Author: Navjot Tomer (Mindstellar)
 Author URI: https://mindstellar.com
 Short Name: stripe

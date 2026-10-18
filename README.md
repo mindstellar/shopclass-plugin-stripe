@@ -1,9 +1,9 @@
 # Stripe Payment
 
-Take card payments for ShopClass credit packages through
+Take card payments for ShopClass shop orders and credit packages through
 [Stripe Checkout](https://stripe.com/payments/checkout). Buyers pay on Stripe's hosted
 page, so no card data reaches your site. A signed webhook marks the order paid, and
-core adds the credits.
+core adds the credits or marks the shop order paid.
 
 ## Requirements
 
@@ -11,9 +11,13 @@ core adds the credits.
 - PHP 8.0 or later, with the curl extension
 - Cron running, for retries and the daily check of pending orders
 
-## Setup
+## Install
 
-1. Install and activate the plugin, then open **Plugins → Stripe**.
+From the admin: **Plugins → Manage plugins → Browse**, find *Stripe*, then **Install** and activate it. Or upload the zip under **Plugins → Add new**.
+
+## Settings
+
+1. Open **Plugins → Stripe**.
 2. In the Stripe dashboard, open **Developers → API keys** and copy the secret key
    (`sk_test_…` in test mode) into *Test secret key*.
 3. Open **Developers → Webhooks**, add an endpoint with the URL the settings page shows:
@@ -70,6 +74,14 @@ Stripe dashboard is recorded the same way. Partial refunds change nothing on the
 
 Each site tags its sessions with its own id and ignores events for other sites, so
 several sites can share an account. Give each site its own webhook endpoint.
+
+## What it stores
+
+The keys, mode and site id are preferences in the `stripe` section. An order keeps the Stripe references it needs in its meta. Retries and the daily check are jobs in core's job queue. No table of its own.
+
+## Hooks
+
+Registers the gateway on `register_payment_gateways`, adds the return page, and listens to `register_jobs`, `cron_daily` and `job_gave_up`. It fires no hooks.
 
 ## Translations
 
