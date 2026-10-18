@@ -55,10 +55,14 @@ final class CoreOrderStore implements OrderStore
 
     public function stalePending(int $seconds, int $limit): array
     {
+        $orders = self::orders();
+        if (method_exists($orders, 'pendingBefore')) {
+            return $orders::pendingBefore(StripeGateway::ID, date('Y-m-d H:i:s', time() - $seconds + 1), $limit, 'cs_');
+        }
         $cutoff = time() - $seconds;
         $out    = array();
         $filter = array('status' => Order::STATUS_PENDING, 'gateway' => StripeGateway::ID);
-        foreach (self::orders()::search($filter, $limit) as $order) {
+        foreach ($orders::search($filter, $limit) as $order) {
             $ref = (string) $order->getExternalRef();
             if (str_starts_with($ref, 'cs_') && strtotime($order->getDate()) <= $cutoff) {
                 $out[] = $order;
