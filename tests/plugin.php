@@ -143,4 +143,21 @@ $http->on('GET', 'checkout/sessions/cs_test_abc2', 200, session($stale, array('i
 ($GLOBALS['jobs'][Plugin::JOB_RECONCILE])(new Job(array('pk_i_id' => 4), array()));
 pin('the daily check job settles a stale order', Order::STATUS_PAID, $orders->find($stale->getId())->getStatus());
 
+harness_section('goods orders and settled statuses');
+
+$GLOBALS['flash'] = array();
+Plugin::flashOutcome(3, 'pending', 'paid', true);
+pin('a goods order is not promised credits', array('ok', 'Payment received for order #3.'), $GLOBALS['flash'][0] ?? null);
+$GLOBALS['flash'] = array();
+Plugin::flashOutcome(3, 'pending', 'paid');
+pin('a credits order still is', array('ok', 'Payment for order #3 received. Credits added.'), $GLOBALS['flash'][0] ?? null);
+if (defined('mindstellar\\billing\\Order::SETTLED')) {
+    $GLOBALS['flash'] = array();
+    Plugin::flashOutcome(3, 'shipped', 'shipped', true);
+    pin('a shipped order reads as paid', array('ok', 'Order #3 is paid.'), $GLOBALS['flash'][0] ?? null);
+    $GLOBALS['flash'] = array();
+    Plugin::flashOutcome(3, 'paid', 'delivered', true);
+    pin('so does a delivered one', array('ok', 'Order #3 is paid.'), $GLOBALS['flash'][0] ?? null);
+}
+
 exit(harness_result());

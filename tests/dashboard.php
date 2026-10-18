@@ -77,4 +77,11 @@ unset($plain['livemode']);
 $settle($test, $plain);
 pin('a session without livemode stores nothing', null, $orders->find($order->getId())->meta(StripeGateway::META_LIVEMODE));
 
+harness_section('shipped and delivered orders');
+
+$hasSettled = defined('mindstellar\\billing\\Order::SETTLED');
+foreach (array('shipped', 'delivered') as $st) {
+    pin('a ' . $st . ' order ' . ($hasSettled ? 'keeps its link' : 'has none on a core without SETTLED'), $hasSettled ? 'https://dashboard.stripe.com/test/payments/pi_3Abc123' : null, $test->dashboardUrl($orders->add(9_990_000, 'USD', 'pi_3Abc123', $st)));
+}
+
 exit(harness_result());

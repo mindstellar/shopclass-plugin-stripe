@@ -275,7 +275,8 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
         if (!preg_match('/^(pi|cs)_[A-Za-z0-9_]+$/', $ref) || !str_starts_with($ref, 'pi_')) {
             return null;
         }
-        if (!in_array($order->getStatus(), array(Order::STATUS_PAID, Order::STATUS_REFUNDED), true)) {
+        $settled = defined('mindstellar\\billing\\Order::SETTLED') ? Order::SETTLED : array(Order::STATUS_PAID);
+        if (!in_array($order->getStatus(), array_merge($settled, array(Order::STATUS_REFUNDED)), true)) {
             return null;
         }
 

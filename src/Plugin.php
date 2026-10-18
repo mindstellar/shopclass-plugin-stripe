@@ -161,7 +161,7 @@ final class Plugin
 
         $now   = $orders->find($order->getId());
         $after = $now === null ? '' : $now->getStatus();
-        self::flashOutcome($order->getId(), $before, $after);
+        self::flashOutcome($order->getId(), $before, $after, method_exists($order, 'isGoods') && $order->isGoods());
 
         return $after;
     }
@@ -172,15 +172,19 @@ final class Plugin
      * @param int    $orderId
      * @param string $before Status before the return page ran
      * @param string $after  Status now
+     * @param bool   $goods  The order is for goods, not credits
      *
      * @return void
      */
-    public static function flashOutcome(int $orderId, string $before, string $after): void
+    public static function flashOutcome(int $orderId, string $before, string $after, bool $goods = false): void
     {
-        if ($after === Order::STATUS_PAID) {
-            osc_add_flash_ok_message($before === Order::STATUS_PAID
+        $settled = defined('mindstellar\\billing\\Order::SETTLED') ? Order::SETTLED : array(Order::STATUS_PAID);
+        if (in_array($after, $settled, true)) {
+            osc_add_flash_ok_message(in_array($before, $settled, true)
                 ? sprintf(__('Order #%d is paid.', 'stripe'), $orderId)
-                : sprintf(__('Payment for order #%d received. Credits added.', 'stripe'), $orderId));
+                : ($goods
+                    ? sprintf(__('Payment received for order #%d.', 'stripe'), $orderId)
+                    : sprintf(__('Payment for order #%d received. Credits added.', 'stripe'), $orderId)));
         } elseif ($after === Order::STATUS_PENDING) {
             osc_add_flash_info_message(sprintf(__('Payment for order #%d is processing. Credits are added once Stripe confirms it.', 'stripe'), $orderId));
         } else {
