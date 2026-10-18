@@ -7,8 +7,9 @@
 
 /**
  * The gateway against core's real billing layer and a scratch database, with Stripe faked:
- * a webhook credits once, a replay credits nothing, a wrong amount is refused, the return
- * page and the daily check settle, and a refund followed by its webhook takes credits once.
+ * a webhook credits once, a replay credits nothing, a wrong amount is refused, a goods order
+ * settles with no credits, the return page and the daily check settle, and a refund followed
+ * by its webhook takes credits once.
  *
  * Needs core's scratch MySQL (see core's tests/lib/scratchdb.php). Usage:
  *   SHOPCLASS_CORE=/path/to/core php tests/integration/billing.php
@@ -193,6 +194,23 @@ $webhook(event('checkout.session.expired', session($short, array('status' => 'ex
 pin('an expired session fails the order', Order::STATUS_FAILED, $status($short));
 $webhook(event('checkout.session.completed', session($short)));
 pin('and a late paid event cannot reopen it', Order::STATUS_FAILED, $status($short));
+
+harness_section('a goods order');
+
+$goods = $orders::create($buyer, StripeGateway::ID, 9_990_000, 'USD', 0, array('_kind' => 'goods', '_label' => 'Linen tee × 2 and 1 more'));
+$http->on('POST', 'checkout/sessions', 200, session($goods));
+$gateway->createCheckout($goods);
+if (method_exists($goods, 'isGoods')) {
+    pin('Stripe is told what was bought', 'Linen tee × 2 and 1 more', $http->lastParams()['line_items'][0]['price_data']['product_data']['name'] ?? null);
+}
+$balance = Wallet::balance($buyer);
+$webhook(event('checkout.session.completed', session($goods, array('amount_total' => 1)), false, 'evt_goods_short'));
+pin('a session for another amount is refused by core', Order::STATUS_PENDING, $status($goods));
+$webhook(event('checkout.session.completed', session($goods), false, 'evt_goods'));
+pin('the right amount settles it', Order::STATUS_PAID, $status($goods));
+pin('with no credits', array($balance, 0), array(Wallet::balance($buyer), $ledger($goods)));
+$webhook(event('checkout.session.completed', session($goods), false, 'evt_goods_2'));
+pin('a replay changes nothing', array(Order::STATUS_PAID, $balance), array($status($goods), Wallet::balance($buyer)));
 
 harness_section('return page');
 

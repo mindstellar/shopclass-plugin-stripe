@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.1.3
 
 ### Changed
+- A shop order shows what was bought in Stripe Checkout, not a credits count.
 - On Shopclass 7.0 the gateway is built only on pages that show a payment, not on every page.
 
 ## 0.1.2
