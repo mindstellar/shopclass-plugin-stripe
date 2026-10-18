@@ -96,7 +96,7 @@ try {
 pin('core accepts the declaration', null, $threw);
 pin('test mode until an admin picks live', 'test', osc_settings_value(Plugin::PAGE, 'mode'));
 pin('no keys until an admin adds them', '', osc_settings_value(Plugin::PAGE, 'test_secret_key'));
-$fields = \mindstellar\settings\SettingsPageRegistry::instance()->fields(Plugin::PAGE);
+$fields = \mindstellar\settings\SettingsPageRegistry::getInstance()->fields(Plugin::PAGE);
 check('a key with the wrong prefix is refused', osc_settings_validate($fields['test_secret_key'], 'pk_test_123') !== null);
 pin('a restricted key is fine', null, osc_settings_validate($fields['live_secret_key'], 'rk_live_123'));
 check('a currency Stripe does not take is refused', osc_settings_validate($fields['currencies'], 'USD, XYZ') !== null);
@@ -129,8 +129,8 @@ $gateway = new StripeGateway(
         $queued[] = $id;
     }
 );
-PaymentGatewayRegistry::instance()->register($gateway);
-check('offered at checkout for USD', isset(PaymentGatewayRegistry::instance()->available('USD')[StripeGateway::ID]));
+PaymentGatewayRegistry::getInstance()->register($gateway);
+check('offered at checkout for USD', isset(PaymentGatewayRegistry::getInstance()->available('USD')[StripeGateway::ID]));
 
 $buyer    = seed_user($admin, 'buyer', 'buyer@example.test');
 $newOrder = static fn (int $amount = 9_990_000, string $currency = 'USD'): Order => $orders::create($buyer, StripeGateway::ID, $amount, $currency, 100);

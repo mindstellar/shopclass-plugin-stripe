@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+### Changed
+- Core registries are reached through getInstance() on Shopclass 7.0, and the gateway registers on the registry the hook passes.
+- Tests load the core container the registries now sit on.
+
 ## 0.1.5
 
 ### Changed

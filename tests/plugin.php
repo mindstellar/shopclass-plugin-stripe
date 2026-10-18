@@ -11,7 +11,7 @@
 
 require __DIR__ . '/lib/bootstrap.php';
 // Shopclass 7.0 registries extend a base class and check currency codes; earlier cores have neither.
-foreach (array('base/Registry.php', 'currency/CurrencyCode.php') as $file) {
+foreach (array('container/ContainerInterface.php', 'container/NotFoundException.php', 'container/Container.php', 'base/Registry.php', 'currency/CurrencyCode.php') as $file) {
     if (is_file(core_path() . '/oc-includes/osclass/classes/' . $file)) {
         require_once core_path() . '/oc-includes/osclass/classes/' . $file;
     }
@@ -122,7 +122,7 @@ check('both job types have a handler', isset($GLOBALS['jobs'][Plugin::JOB_EVENT]
 ($GLOBALS['jobs'][Plugin::JOB_EVENT])(new Job(array('pk_i_id' => 1), array('event' => 'evt_x')));
 pin('the event job fetches that event from Stripe', 'https://api.stripe.com/v1/events/evt_x', end($http->requests)['url'] ?? null);
 pin('and settles its order', Order::STATUS_PAID, $orders->find(1)->getStatus());
-check('the gateway was registered for the job', \mindstellar\billing\PaymentGatewayRegistry::instance()->get('stripe') === $gateway);
+check('the gateway was registered for the job', \mindstellar\billing\PaymentGatewayRegistry::getInstance()->get('stripe') === $gateway);
 
 $GLOBALS['billing'] = false;
 $threw              = false;

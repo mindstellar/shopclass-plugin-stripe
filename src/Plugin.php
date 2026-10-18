@@ -57,7 +57,7 @@ final class Plugin
      */
     public static function uninstall(): void
     {
-        foreach (array_keys(SettingsPageRegistry::instance()->fields(self::PAGE)) as $name) {
+        foreach (array_keys(self::core(SettingsPageRegistry::class)->fields(self::PAGE)) as $name) {
             osc_delete_preference($name, self::PAGE);
         }
     }
@@ -77,17 +77,32 @@ final class Plugin
     }
 
     /**
+     * A core registry: getInstance() on Shopclass 7.0, instance() on 6.4.
+     *
+     * @param class-string $class
+     *
+     * @return mixed
+     */
+    private static function core(string $class)
+    {
+        return method_exists($class, 'getInstance') ? $class::getInstance() : $class::instance();
+    }
+
+    /**
      * Register the gateway while billing is on, and hand it back.
+     *
+     * @param PaymentGatewayRegistry|null $registry Passed by core's register_payment_gateways hook
      *
      * @return StripeGateway|null
      */
-    public static function register(): ?StripeGateway
+    public static function register($registry = null): ?StripeGateway
     {
         if (!osc_billing_enabled()) {
             return null;
         }
         $gateway = self::gateway();
-        PaymentGatewayRegistry::instance()->register($gateway);
+        $registry = $registry instanceof PaymentGatewayRegistry ? $registry : self::core(PaymentGatewayRegistry::class);
+        $registry->register($gateway);
 
         return $gateway;
     }
