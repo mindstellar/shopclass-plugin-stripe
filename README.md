@@ -17,7 +17,7 @@ From the admin: **Plugins → Manage plugins → Browse**, find *Stripe*, then *
 
 ## Settings
 
-1. Open **Plugins → Stripe**.
+1. Open **Settings → Billing → Payment methods** and choose **Set up** next to Stripe.
 2. In the Stripe dashboard, open **Developers → API keys** and copy the secret key
    (`sk_test_…` in test mode) into *Test secret key*.
 3. Open **Developers → Webhooks**, add an endpoint with the URL the settings page shows:

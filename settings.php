@@ -60,7 +60,7 @@ $webhook = static function (): void {
 
 return array(
     'title'  => __('Stripe Payment', 'stripe'),
-    'menu'   => 'plugins',
+    'menu'   => '',
     'intro'  => __('Take card payments for credit packages through Stripe Checkout. Buyers pay on a page hosted by Stripe, so no card data reaches this site.', 'stripe'),
     'groups' => array(
         array(
