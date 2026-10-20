@@ -2,6 +2,7 @@
   "$schema": "../schema/package.schema.json",
   "slug": "stripe",
   "type": "plugin",
+  "modes": ["classifieds", "shop"],
   "categories": ["payments"],
   "tags": ["billing", "payments", "stripe", "cards", "checkout"],
   "short_description": "Take card payments for shop orders and credit packages through Stripe Checkout, with signed webhooks and refunds from the admin.",

@@ -11,6 +11,7 @@ Requires Shopclass: 6.4.0
 Tested up to: 7.0
 Requires PHP: 8.0
 Support URI: https://github.com/mindstellar/shopclass-plugin-stripe/issues
+Modes: classifieds, shop
 */
 
 /*
