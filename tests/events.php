@@ -143,7 +143,7 @@ check('even when the queue is down too, Stripe is told to retry', $noQueue->hand
 
 harness_section('not configured');
 
-$bare = fake_gateway($http, $orders, array('webhook' => ''));
+$bare = fake_gateway($http, $orders, array('mode' => 'live', 'webhook' => ''));
 deliver($paid);
 $r = $bare->handleCallback(array());
 pin('without a webhook secret nothing is settled', CallbackResult::OUTCOME_IGNORED, $r->getOutcome());

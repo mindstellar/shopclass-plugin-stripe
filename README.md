@@ -36,8 +36,10 @@ From the admin: **Plugins → Manage plugins → Browse**, find *Stripe*, then *
 
 4. Copy the endpoint's signing secret (`whsec_…`) into *Test webhook secret* and save.
 
-Stripe shows at checkout only once both keys for the active mode are set and the site's
-billing currency is one Stripe takes.
+Stripe shows at checkout once the secret key for the active mode is set and the site's
+billing currency is one Stripe takes. Live mode also needs the webhook secret. In test mode
+it is optional, so a local site Stripe cannot reach still works: the buyer's return settles
+the payment.
 
 Saved keys are never shown again. Leave a key's box blank to keep it.
 

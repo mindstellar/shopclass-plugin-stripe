@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.7
+
+### Changed
+- In test mode Stripe is offered with only the secret key; live mode still needs the webhook signing secret.
+
 ## 0.1.6
 
 ### Changed

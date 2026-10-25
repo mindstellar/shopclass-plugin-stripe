@@ -122,13 +122,14 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
     }
 
     /**
-     * Whether the active mode has both keys. Webhooks and lookups need only this.
+     * Whether the active mode has a secret key, and in live mode a webhook secret too.
+     * Test mode works without one: the buyer's return settles the payment.
      *
      * @return bool
      */
     public function hasKeys(): bool
     {
-        return $this->config->secretKey !== '' && $this->config->webhookSecret !== '';
+        return $this->config->secretKey !== '' && ($this->config->webhookSecret !== '' || !$this->config->live());
     }
 
     /**
@@ -369,6 +370,9 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
      */
     private function webhook(): CallbackResult
     {
+        if ($this->config->webhookSecret === '') {
+            return CallbackResult::ignored('no webhook secret is set');
+        }
         [$body, $header] = ($this->input)();
         if (!Signature::verify($body, $header, $this->config->webhookSecret)) {
             return CallbackResult::ignored('bad signature');
