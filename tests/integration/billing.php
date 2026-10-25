@@ -192,8 +192,11 @@ pin('none credited anything', 100, Wallet::balance($buyer));
 
 $webhook(event('checkout.session.expired', session($short, array('status' => 'expired', 'payment_status' => 'unpaid'))));
 pin('an expired session fails the order', Order::STATUS_FAILED, $status($short));
+$http->on('POST', 'refunds', 200, array('id' => 're_late', 'status' => 'succeeded'));
 $webhook(event('checkout.session.completed', session($short)));
 pin('and a late paid event cannot reopen it', Order::STATUS_FAILED, $status($short));
+pin('it is refunded at Stripe instead', 're_late', $orders::find($short->getId())->meta(StripeGateway::META_CLOSED_REFUND));
+unset($http->routes['POST refunds']);
 
 harness_section('a goods order');
 

@@ -61,6 +61,8 @@ same URL and events, paste its signing secret, then switch *Mode* to *Live*.
 - If the site cannot record a payment, the event is queued and retried, and Stripe sends
   it again. If it still fails, the site's contact address gets an e-mail.
 - Once a day, pending Stripe orders over an hour old are checked with Stripe.
+- A payment for an order already closed (failed or cancelled) is refunded at Stripe at once.
+  If Stripe refuses, it shows as "paid after close" in **Tools → Activity log**.
 
 Every path goes through core's billing checks: amount, currency and owner must match,
 and a replayed event credits nothing.

@@ -34,6 +34,9 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
     /** Order meta key for the mode a payment was made in. */
     public const META_LIVEMODE = 'stripe_livemode';
 
+    /** Order meta key set once a payment for an order already closed has been refunded. */
+    public const META_CLOSED_REFUND = 'stripe_closed_refund';
+
     /** Request key holding a Verified object. */
     public const TRUSTED = 'stripe_verified';
 
@@ -465,12 +468,81 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
         }
 
         // Stripe's own figures; core refuses them when they differ from the order.
-        return CallbackResult::paid(
+        $paid = CallbackResult::paid(
             $order->getId(),
             $intent ?? (string) $session['id'],
             Money::toMicros((int) ($session['amount_total'] ?? -1), $currency),
             $currency
         );
+
+        return $intent !== null && in_array($order->getStatus(), array(Order::STATUS_FAILED, Order::STATUS_CANCELLED), true)
+            ? $this->refundClosed($order, $intent, $paid)
+            : $paid;
+    }
+
+    /**
+     * Give back money Stripe took for an order core had already closed. Done once per order; a
+     * refund Stripe could not be asked for throws, so it is retried. A refused one goes on to core,
+     * which logs the payment as "paid after close" for the admin.
+     *
+     * @param Order          $order
+     * @param string         $intent
+     * @param CallbackResult $paid
+     *
+     * @return CallbackResult
+     * @throws HttpException when Stripe cannot be reached or fails
+     */
+    private function refundClosed(Order $order, string $intent, CallbackResult $paid): CallbackResult
+    {
+        if ($order->meta(self::META_CLOSED_REFUND) !== null) {
+            return CallbackResult::ignored('payment for a closed order was already handled');
+        }
+        try {
+            $refund = $this->api->createRefund(
+                array(
+                    'payment_intent' => $intent,
+                    'metadata'       => array('order_id' => (string) $order->getId(), 'site' => $this->config->siteId),
+                ),
+                'closed-order-' . $order->getId() . '-' . $this->config->siteId
+            );
+        } catch (HttpException $e) {
+            $code = $e->getCode();
+            if ($code < 400 || $code >= 500 || $code === 401) {
+                throw $e;
+            }
+            $this->rememberClosed($order->getId(), 'refused');
+            error_log('Stripe: payment ' . $intent . ' for closed order #' . $order->getId() . ' could not be refunded: ' . self::short($e->getMessage()));
+
+            return $paid;
+        }
+
+        $refundId = (string) ($refund['id'] ?? '');
+        if (!str_starts_with($refundId, 're_')) {
+            throw new HttpException('Stripe did not refund payment ' . $intent);
+        }
+        $this->rememberClosed($order->getId(), $refundId);
+        error_log('Stripe: payment ' . $intent . ' for order #' . $order->getId() . ' arrived after the order was closed and was refunded.');
+
+        return CallbackResult::ignored('payment for a closed order; refunded');
+    }
+
+    /**
+     * Note on the order that its late payment was handled.
+     *
+     * @param int    $orderId
+     * @param string $value
+     *
+     * @return void
+     */
+    private function rememberClosed(int $orderId, string $value): void
+    {
+        try {
+            if (!$this->orders->setMeta($orderId, self::META_CLOSED_REFUND, $value)) {
+                error_log('Stripe: could not store the refund on order #' . $orderId);
+            }
+        } catch (Throwable $e) {
+            error_log('Stripe: could not store the refund on order #' . $orderId . ': ' . $e->getMessage());
+        }
     }
 
     /**
