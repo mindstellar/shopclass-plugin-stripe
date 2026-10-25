@@ -15,6 +15,14 @@ use mindstellar\billing\CallbackResult;
 use mindstellar\billing\Order;
 use mindstellar\stripe\StripeApi;
 
+// Core 7.1 lists credit-package gateways by the billing currency; the 7.0 fallback is tested in checkout-70.php.
+if (!function_exists('osc_billing_gateways')) {
+    function osc_billing_gateways(): array
+    {
+        return array();
+    }
+}
+
 harness_section('isConfigured');
 
 $http   = new FakeHttp();
@@ -23,7 +31,8 @@ check('ready with a secret key and a webhook secret', fake_gateway($http, $order
 check('not without the secret key', !fake_gateway($http, $orders, array('secret' => ''))->isConfigured());
 check('test mode is offered without a webhook secret', fake_gateway($http, $orders, array('webhook' => ''))->isConfigured());
 check('live is not offered without a webhook secret', !fake_gateway($http, $orders, array('mode' => 'live', 'webhook' => ''))->isConfigured());
-check('not when the billing currency is not allowed', !fake_gateway($http, $orders, array('currencies' => array('EUR')))->isConfigured());
+check('offered when its listed currencies leave out the billing currency', fake_gateway($http, $orders, array('currencies' => array('EUR')))->isConfigured());
+check('but not when it takes no currency', !fake_gateway($http, $orders, array('billing' => 'XYZ'))->isConfigured());
 check('yes when it is', fake_gateway($http, $orders, array('currencies' => array('EUR', 'USD')))->isConfigured());
 check('in test mode, not offered to a buyer who is not an admin', !fake_gateway($http, $orders, array('admin' => false))->isConfigured());
 check('but webhooks and lookups still work for them', fake_gateway($http, $orders, array('admin' => false))->hasKeys());

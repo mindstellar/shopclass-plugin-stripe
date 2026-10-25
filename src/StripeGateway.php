@@ -110,14 +110,20 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
     }
 
     /**
-     * Offered at checkout once the active mode has both keys and Stripe takes the billing
-     * currency. In test mode only a signed-in admin sees it, so a live site cannot hand out free credits.
+     * Offered at checkout once the active mode has both keys and a currency to charge. Core offers it
+     * only for an order in one of getSupportedCurrencies(); Shopclass 7.0 does not, so there it also
+     * needs the billing currency. In test mode only a signed-in admin sees it, so a live site cannot hand out free credits.
      *
      * @return bool
      */
     public function isConfigured(): bool
     {
-        if (!$this->hasKeys() || !in_array($this->config->billingCurrency, $this->getSupportedCurrencies(), true)) {
+        $currencies = $this->getSupportedCurrencies();
+        if (!$this->hasKeys() || $currencies === array()) {
+            return false;
+        }
+        // Shopclass 7.1 lists credit-package gateways by the billing currency (osc_billing_gateways()); 7.0 does not.
+        if (!function_exists('osc_billing_gateways') && !in_array($this->config->billingCurrency, $currencies, true)) {
             return false;
         }
 

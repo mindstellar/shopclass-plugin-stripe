@@ -131,6 +131,22 @@ $gateway = new StripeGateway(
 );
 PaymentGatewayRegistry::getInstance()->register($gateway);
 check('offered at checkout for USD', isset(PaymentGatewayRegistry::getInstance()->available('USD')[StripeGateway::ID]));
+check('not for a currency it does not list', !isset(PaymentGatewayRegistry::getInstance()->available('INR')[StripeGateway::ID]));
+$billingIs = static function (string $code): void {
+    osc_set_preference('billing_currency', $code, 'osclass', 'STRING');
+    osc_reset_preferences();
+};
+$billingIs('INR');
+$inrBilling = new StripeGateway(fake_config(array('billing' => 'INR', 'currencies' => array('USD'))), $http, $store, static fn (): array => $GLOBALS['input'], null, static function (string $id) use (&$queued): void {
+    $queued[] = $id;
+});
+PaymentGatewayRegistry::getInstance()->register($inrBilling);
+check('offered for a USD order with INR billing', isset(PaymentGatewayRegistry::getInstance()->available('USD')[StripeGateway::ID]));
+check('not for an INR order', !isset(PaymentGatewayRegistry::getInstance()->available('INR')[StripeGateway::ID]));
+check('a credit package in INR billing does not list it', !isset(osc_billing_gateways()[StripeGateway::ID]));
+$billingIs('USD');
+PaymentGatewayRegistry::getInstance()->register($gateway);
+check('and in USD billing it does', isset(osc_billing_gateways()[StripeGateway::ID]));
 
 $buyer    = seed_user($admin, 'buyer', 'buyer@example.test');
 $newOrder = static fn (int $amount = 9_990_000, string $currency = 'USD'): Order => $orders::create($buyer, StripeGateway::ID, $amount, $currency, 100);
