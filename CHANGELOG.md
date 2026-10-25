@@ -3,6 +3,7 @@
 ## 0.1.7
 
 ### Changed
+- A refund Stripe is still processing shows as sent, not as an error, on Shopclass 7.1.
 - Stripe is offered for any order in a currency it takes, whatever the billing currency; credit packages still need the billing currency to be one it takes.
 - On Shopclass 7.0 the settings page stays reachable from the plugin list, since 7.0 has no Billing menu for plugin pages.
 - In test mode Stripe is offered with only the secret key; live mode still needs the webhook signing secret.

@@ -34,7 +34,7 @@ pin('with an idempotency key, so a double click refunds once', 'refund-order-1-'
 foreach (array('pending', 'requires_action') as $status) {
     $http->on('POST', 'refunds', 200, array('id' => 're_2', 'object' => 'refund', 'status' => $status));
     $r = $gateway->refund($order);
-    pin('a ' . $status . ' refund leaves the order for the webhook', CallbackResult::OUTCOME_IGNORED, $r->getOutcome());
+    pin('a ' . $status . ' refund leaves the order for the webhook', method_exists(CallbackResult::class, 'refundPending') ? CallbackResult::OUTCOME_PENDING : CallbackResult::OUTCOME_IGNORED, $r->getOutcome());
     pin('and says so', 'Stripe is still processing the refund; the order updates when it completes.', $r->getMessage());
 }
 
