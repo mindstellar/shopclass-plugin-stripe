@@ -17,7 +17,7 @@ Take card payments for shop orders and credit packages through [Stripe Checkout]
 
 ## Set up
 
-1. Open Settings → Billing → Payment methods and choose Set up next to Stripe.
+1. Open Billing → Stripe (Shopclass 7.1). On 7.0, open Plugins and choose Configure next to Stripe.
 2. In the Stripe dashboard, open Developers → API keys. Copy the secret key (`sk_test_…` in test mode) into Test secret key.
 3. Open Developers → Webhooks. Add an endpoint with the Endpoint URL shown on the settings page:
 
