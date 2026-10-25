@@ -60,7 +60,8 @@ $webhook = static function (): void {
 
 return array(
     'title'      => __('Stripe Payment', 'stripe'),
-    'menu'       => 'billing',
+    // Core 7.0 has no Billing menu for plugin pages; there the page is reached from the plugin list.
+    'menu'       => class_exists(\mindstellar\settings\SettingsPageRegistry::class) && in_array('billing', \mindstellar\settings\SettingsPageRegistry::MENUS, true) ? 'billing' : '',
     'menu_title' => __('Stripe', 'stripe'),
     'intro'  => __('Take card payments for credit packages through Stripe Checkout. Buyers pay on a page hosted by Stripe, so no card data reaches this site.', 'stripe'),
     'groups' => array(

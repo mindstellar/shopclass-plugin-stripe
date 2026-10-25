@@ -3,6 +3,7 @@
 ## 0.1.7
 
 ### Changed
+- On Shopclass 7.0 the settings page stays reachable from the plugin list, since 7.0 has no Billing menu for plugin pages.
 - In test mode Stripe is offered with only the secret key; live mode still needs the webhook signing secret.
 - The settings page moves under Billing.
 - Test mode also shows at checkout for a signed-in admin on themes that pay through the API (Shopclass 7.1).
