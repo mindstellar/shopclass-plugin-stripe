@@ -4,6 +4,7 @@
 
 ### Changed
 - In test mode Stripe is offered with only the secret key; live mode still needs the webhook signing secret.
+- The settings page moves under Billing.
 
 ## 0.1.6
 
