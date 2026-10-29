@@ -7,8 +7,9 @@
 
 /**
  * The gateway against core's real billing layer and a scratch database, with Stripe faked:
- * a webhook credits once, a replay credits nothing, a wrong amount is refused, the return
- * page and the daily check settle, and a refund followed by its webhook takes credits once.
+ * a webhook credits once, a replay credits nothing, a wrong amount is refused, a goods order
+ * settles with no credits, the return page and the daily check settle, and a refund followed
+ * by its webhook takes credits once.
  *
  * Needs core's scratch MySQL (see core's tests/lib/scratchdb.php). Usage:
  *   SHOPCLASS_CORE=/path/to/core php tests/integration/billing.php
@@ -95,7 +96,7 @@ try {
 pin('core accepts the declaration', null, $threw);
 pin('test mode until an admin picks live', 'test', osc_settings_value(Plugin::PAGE, 'mode'));
 pin('no keys until an admin adds them', '', osc_settings_value(Plugin::PAGE, 'test_secret_key'));
-$fields = \mindstellar\settings\SettingsPageRegistry::instance()->fields(Plugin::PAGE);
+$fields = \mindstellar\settings\SettingsPageRegistry::getInstance()->fields(Plugin::PAGE);
 check('a key with the wrong prefix is refused', osc_settings_validate($fields['test_secret_key'], 'pk_test_123') !== null);
 pin('a restricted key is fine', null, osc_settings_validate($fields['live_secret_key'], 'rk_live_123'));
 check('a currency Stripe does not take is refused', osc_settings_validate($fields['currencies'], 'USD, XYZ') !== null);
@@ -128,8 +129,24 @@ $gateway = new StripeGateway(
         $queued[] = $id;
     }
 );
-PaymentGatewayRegistry::instance()->register($gateway);
-check('offered at checkout for USD', isset(PaymentGatewayRegistry::instance()->available('USD')[StripeGateway::ID]));
+PaymentGatewayRegistry::getInstance()->register($gateway);
+check('offered at checkout for USD', isset(PaymentGatewayRegistry::getInstance()->available('USD')[StripeGateway::ID]));
+check('not for a currency it does not list', !isset(PaymentGatewayRegistry::getInstance()->available('INR')[StripeGateway::ID]));
+$billingIs = static function (string $code): void {
+    osc_set_preference('billing_currency', $code, 'osclass', 'STRING');
+    osc_reset_preferences();
+};
+$billingIs('INR');
+$inrBilling = new StripeGateway(fake_config(array('billing' => 'INR', 'currencies' => array('USD'))), $http, $store, static fn (): array => $GLOBALS['input'], null, static function (string $id) use (&$queued): void {
+    $queued[] = $id;
+});
+PaymentGatewayRegistry::getInstance()->register($inrBilling);
+check('offered for a USD order with INR billing', isset(PaymentGatewayRegistry::getInstance()->available('USD')[StripeGateway::ID]));
+check('not for an INR order', !isset(PaymentGatewayRegistry::getInstance()->available('INR')[StripeGateway::ID]));
+check('a credit package in INR billing does not list it', !isset(osc_billing_gateways()[StripeGateway::ID]));
+$billingIs('USD');
+PaymentGatewayRegistry::getInstance()->register($gateway);
+check('and in USD billing it does', isset(osc_billing_gateways()[StripeGateway::ID]));
 
 $buyer    = seed_user($admin, 'buyer', 'buyer@example.test');
 $newOrder = static fn (int $amount = 9_990_000, string $currency = 'USD'): Order => $orders::create($buyer, StripeGateway::ID, $amount, $currency, 100);
@@ -191,8 +208,28 @@ pin('none credited anything', 100, Wallet::balance($buyer));
 
 $webhook(event('checkout.session.expired', session($short, array('status' => 'expired', 'payment_status' => 'unpaid'))));
 pin('an expired session fails the order', Order::STATUS_FAILED, $status($short));
+$http->on('POST', 'refunds', 200, array('id' => 're_late', 'status' => 'succeeded'));
 $webhook(event('checkout.session.completed', session($short)));
 pin('and a late paid event cannot reopen it', Order::STATUS_FAILED, $status($short));
+pin('it is refunded at Stripe instead', 're_late', $orders::find($short->getId())->meta(StripeGateway::META_CLOSED_REFUND));
+unset($http->routes['POST refunds']);
+
+harness_section('a goods order');
+
+$goods = $orders::create($buyer, StripeGateway::ID, 9_990_000, 'USD', 0, array('_kind' => 'goods', '_label' => 'Linen tee × 2 and 1 more'));
+$http->on('POST', 'checkout/sessions', 200, session($goods));
+$gateway->createCheckout($goods);
+if (method_exists($goods, 'isGoods')) {
+    pin('Stripe is told what was bought', 'Linen tee × 2 and 1 more', $http->lastParams()['line_items'][0]['price_data']['product_data']['name'] ?? null);
+}
+$balance = Wallet::balance($buyer);
+$webhook(event('checkout.session.completed', session($goods, array('amount_total' => 1)), false, 'evt_goods_short'));
+pin('a session for another amount is refused by core', Order::STATUS_PENDING, $status($goods));
+$webhook(event('checkout.session.completed', session($goods), false, 'evt_goods'));
+pin('the right amount settles it', Order::STATUS_PAID, $status($goods));
+pin('with no credits', array($balance, 0), array(Wallet::balance($buyer), $ledger($goods)));
+$webhook(event('checkout.session.completed', session($goods), false, 'evt_goods_2'));
+pin('a replay changes nothing', array(Order::STATUS_PAID, $balance), array($status($goods), Wallet::balance($buyer)));
 
 harness_section('return page');
 

@@ -1,89 +1,74 @@
 # Stripe Payment
 
-Take card payments for ShopClass credit packages through
-[Stripe Checkout](https://stripe.com/payments/checkout). Buyers pay on Stripe's hosted
-page, so no card data reaches your site. A signed webhook marks the order paid, and
-core adds the credits.
+Take card payments for shop orders and credit packages through [Stripe Checkout](https://stripe.com/payments/checkout). Buyers pay on Stripe's page, so no card data reaches your site.
 
 ## Requirements
 
-- ShopClass 6.4.0 or later, with billing turned on
+- Shopclass 6.4.0 or later, with billing turned on
 - PHP 8.0 or later, with the curl extension
-- Cron running, for retries and the daily check of pending orders
+- A Stripe account
+- Cron running (for retries and the daily check of pending orders)
 
-## Setup
+## Install
 
-1. Install and activate the plugin, then open **Plugins → Stripe**.
-2. In the Stripe dashboard, open **Developers → API keys** and copy the secret key
-   (`sk_test_…` in test mode) into *Test secret key*.
-3. Open **Developers → Webhooks**, add an endpoint with the URL the settings page shows:
+1. Open Plugins → Browse (or upload the zip from the GitHub release).
+2. Install.
+3. Activate.
+
+## Set up
+
+1. Open Billing → Stripe (Shopclass 7.1). On 7.0, open Plugins and choose Configure next to Stripe.
+2. In the Stripe dashboard, open Developers → API keys. Copy the secret key (`sk_test_…` in test mode) into Test secret key.
+3. Open Developers → Webhooks. Add an endpoint with the Endpoint URL shown on the settings page:
 
    ```
    https://example.com/index.php?page=billing&action=callback&gateway=stripe
    ```
 
-   and select these events:
-
+4. Select these events:
    - `checkout.session.completed`
    - `checkout.session.async_payment_succeeded`
    - `checkout.session.async_payment_failed`
    - `checkout.session.expired`
    - `charge.refunded`
+5. Copy the endpoint's signing secret (`whsec_…`) into Test webhook secret and save.
+6. Optional: set Name at checkout (default "Card (Stripe)") and Currencies (comma-separated codes; empty uses the billing currency).
 
-4. Copy the endpoint's signing secret (`whsec_…`) into *Test webhook secret* and save.
+To go live, add the Live secret key, add a second webhook endpoint in live mode with the same URL and events, paste its signing secret into Live webhook secret, then set Mode to Live.
 
-Stripe shows at checkout only once both keys for the active mode are set and the site's
-billing currency is one Stripe takes.
+Saved keys are never shown again. Leave a key box blank to keep it.
 
-Saved keys are never shown again. Leave a key's box blank to keep it.
+## How it works
 
-## Test mode
-
-The plugin starts in test mode, and an admin notice says so. In test mode only a
-signed-in admin sees Stripe at checkout, so a live site cannot give credits away. Pay with Stripe's
-[test cards](https://docs.stripe.com/testing), such as `4242 4242 4242 4242`.
-
-To go live, add the live secret key, add a second webhook endpoint in live mode with the
-same URL and events, paste its signing secret, then switch *Mode* to *Live*.
-
-## How an order is paid
-
-- When the buyer comes back from Stripe, the plugin asks Stripe for the session and
-  settles the order at once.
-- The webhook settles it too, for a buyer who closes the tab. Bank debits that clear
-  later arrive this way.
-- If the site cannot record a payment, the event is queued and retried, and Stripe sends
-  it again. If it still fails, the site's contact address gets an e-mail.
+- Stripe shows at checkout once the secret key for the active mode is set and the billing currency is one Stripe takes.
+- When the buyer returns from Stripe, the plugin asks Stripe for the session and settles the order.
+- The webhook settles it too, for a buyer who closes the tab. Bank debits that clear later arrive this way.
+- If the site cannot record a payment, the event is queued and retried. If it still fails, the site's contact address gets an e-mail.
 - Once a day, pending Stripe orders over an hour old are checked with Stripe.
+- A payment for an order already closed (failed or cancelled) is refunded at Stripe. If Stripe refuses, it shows as "paid after close" in Tools → Activity log.
+- Core checks amount, currency and owner on every path. A replayed event credits nothing.
+- Refund: open the order under Billing → Orders and press Refund. The whole payment is refunded and core takes the credits back. A full refund made in the Stripe dashboard is recorded the same way.
 
-Every path goes through core's billing checks: amount, currency and owner must match,
-and a replayed event credits nothing.
+## Notes / limits
 
-## Refunds
+- The plugin starts in test mode, and an admin notice says so. In test mode only a signed-in admin sees Stripe at checkout.
+- Test with Stripe's [test cards](https://docs.stripe.com/testing), such as `4242 4242 4242 4242`.
+- Live mode needs the webhook secret. In test mode it is optional, so a local site Stripe cannot reach still works.
+- Partial refunds change nothing on the site.
+- Several sites can share one Stripe account. Each site ignores events tagged for other sites. Give each its own webhook endpoint.
+- Keys, mode and site id are preferences in the `stripe` section. Order references are kept in order meta. No table of its own.
 
-Open the order under **Billing → Orders** and press **Refund**. The plugin refunds the
-whole payment at Stripe and core takes the credits back. If Stripe is still processing
-the refund, the order changes once Stripe reports it done. A full refund made in the
-Stripe dashboard is recorded the same way. Partial refunds change nothing on the site.
+## For developers
 
-## Several sites, one Stripe account
+Registers the gateway on `register_payment_gateways` and listens to `register_jobs`, `cron_daily` and `job_gave_up`. It fires no hooks.
 
-Each site tags its sessions with its own id and ignores events for other sites, so
-several sites can share an account. Give each site its own webhook endpoint.
+Translations: copy `languages/stripe.pot` to `languages/<locale>/messages.po`, translate, and compile to `messages.mo`. Regenerate the template with `php tools/make-pot.php`.
 
-## Translations
+Tests: `./tests/run.sh` (unit, no network) and `php tests/integration/billing.php` (core's scratch MySQL on port 33061). Both load core from `SHOPCLASS_CORE`, or a sibling checkout named `osclass`.
 
-Copy `languages/stripe.pot` to `languages/<locale>/messages.po`, translate it, and compile
-it to `messages.mo` in the same folder. After changing strings, run `php tools/make-pot.php`.
+## Support
 
-## Tests
-
-```bash
-./tests/run.sh                                  # unit tests, no network
-php tests/integration/billing.php               # core's scratch MySQL on port 33061
-```
-
-Both load core from `SHOPCLASS_CORE`, or a sibling checkout named `osclass`.
+https://github.com/mindstellar/shopclass-plugin-stripe/issues
 
 ## License
 

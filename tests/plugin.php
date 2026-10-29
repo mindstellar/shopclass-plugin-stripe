@@ -11,7 +11,7 @@
 
 require __DIR__ . '/lib/bootstrap.php';
 // Shopclass 7.0 registries extend a base class and check currency codes; earlier cores have neither.
-foreach (array('base/Registry.php', 'currency/CurrencyCode.php') as $file) {
+foreach (array('container/ContainerInterface.php', 'container/NotFoundException.php', 'container/Container.php', 'base/Registry.php', 'currency/CurrencyCode.php') as $file) {
     if (is_file(core_path() . '/oc-includes/osclass/classes/' . $file)) {
         require_once core_path() . '/oc-includes/osclass/classes/' . $file;
     }
@@ -122,7 +122,7 @@ check('both job types have a handler', isset($GLOBALS['jobs'][Plugin::JOB_EVENT]
 ($GLOBALS['jobs'][Plugin::JOB_EVENT])(new Job(array('pk_i_id' => 1), array('event' => 'evt_x')));
 pin('the event job fetches that event from Stripe', 'https://api.stripe.com/v1/events/evt_x', end($http->requests)['url'] ?? null);
 pin('and settles its order', Order::STATUS_PAID, $orders->find(1)->getStatus());
-check('the gateway was registered for the job', \mindstellar\billing\PaymentGatewayRegistry::instance()->get('stripe') === $gateway);
+check('the gateway was registered for the job', \mindstellar\billing\PaymentGatewayRegistry::getInstance()->get('stripe') === $gateway);
 
 $GLOBALS['billing'] = false;
 $threw              = false;
@@ -142,5 +142,22 @@ $stale = $orders->add(9_990_000, 'USD', 'cs_test_abc2', 'pending', 'stripe', dat
 $http->on('GET', 'checkout/sessions/cs_test_abc2', 200, session($stale, array('id' => 'cs_test_abc2')));
 ($GLOBALS['jobs'][Plugin::JOB_RECONCILE])(new Job(array('pk_i_id' => 4), array()));
 pin('the daily check job settles a stale order', Order::STATUS_PAID, $orders->find($stale->getId())->getStatus());
+
+harness_section('goods orders and settled statuses');
+
+$GLOBALS['flash'] = array();
+Plugin::flashOutcome(3, 'pending', 'paid', true);
+pin('a goods order is not promised credits', array('ok', 'Payment received for order #3.'), $GLOBALS['flash'][0] ?? null);
+$GLOBALS['flash'] = array();
+Plugin::flashOutcome(3, 'pending', 'paid');
+pin('a credits order still is', array('ok', 'Payment for order #3 received. Credits added.'), $GLOBALS['flash'][0] ?? null);
+if (defined('mindstellar\\billing\\Order::SETTLED')) {
+    $GLOBALS['flash'] = array();
+    Plugin::flashOutcome(3, 'shipped', 'shipped', true);
+    pin('a shipped order reads as paid', array('ok', 'Order #3 is paid.'), $GLOBALS['flash'][0] ?? null);
+    $GLOBALS['flash'] = array();
+    Plugin::flashOutcome(3, 'paid', 'delivered', true);
+    pin('so does a delivered one', array('ok', 'Order #3 is paid.'), $GLOBALS['flash'][0] ?? null);
+}
 
 exit(harness_result());

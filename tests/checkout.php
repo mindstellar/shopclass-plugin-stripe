@@ -15,14 +15,24 @@ use mindstellar\billing\CallbackResult;
 use mindstellar\billing\Order;
 use mindstellar\stripe\StripeApi;
 
+// Core 7.1 lists credit-package gateways by the billing currency; the 7.0 fallback is tested in checkout-70.php.
+if (!function_exists('osc_billing_gateways')) {
+    function osc_billing_gateways(): array
+    {
+        return array();
+    }
+}
+
 harness_section('isConfigured');
 
 $http   = new FakeHttp();
 $orders = new MemoryOrders();
 check('ready with a secret key and a webhook secret', fake_gateway($http, $orders)->isConfigured());
 check('not without the secret key', !fake_gateway($http, $orders, array('secret' => ''))->isConfigured());
-check('not without the webhook secret', !fake_gateway($http, $orders, array('webhook' => ''))->isConfigured());
-check('not when the billing currency is not allowed', !fake_gateway($http, $orders, array('currencies' => array('EUR')))->isConfigured());
+check('test mode is offered without a webhook secret', fake_gateway($http, $orders, array('webhook' => ''))->isConfigured());
+check('live is not offered without a webhook secret', !fake_gateway($http, $orders, array('mode' => 'live', 'webhook' => ''))->isConfigured());
+check('offered when its listed currencies leave out the billing currency', fake_gateway($http, $orders, array('currencies' => array('EUR')))->isConfigured());
+check('but not when it takes no currency', !fake_gateway($http, $orders, array('billing' => 'XYZ'))->isConfigured());
 check('yes when it is', fake_gateway($http, $orders, array('currencies' => array('EUR', 'USD')))->isConfigured());
 check('in test mode, not offered to a buyer who is not an admin', !fake_gateway($http, $orders, array('admin' => false))->isConfigured());
 check('but webhooks and lookups still work for them', fake_gateway($http, $orders, array('admin' => false))->hasKeys());
@@ -58,6 +68,13 @@ pin('a return URL Stripe fills in', 'https://shop.test/index.php?page=route&rout
 pin('cancel goes back to the buy page', 'https://shop.test/buy', $params['cancel_url']);
 pin('the session is remembered on the order', 'cs_test_abc1', $orders->find(1)->getExternalRef());
 pin('which stays pending', Order::STATUS_PENDING, $orders->find(1)->getStatus());
+
+$goods = $orders->add(9_990_000, 'USD', null, Order::STATUS_PENDING, 'stripe', '2026-01-01 00:00:00', array('_kind' => 'goods', '_label' => 'Linen tee × 2 and 1 more'));
+if (method_exists($goods, 'isGoods')) {
+    $http->on('POST', 'checkout/sessions', 200, session($goods));
+    $gateway->createCheckout($goods);
+    pin('a goods order is named by its label', 'Linen tee × 2 and 1 more', $http->lastParams()['line_items'][0]['price_data']['product_data']['name']);
+}
 
 $jpy = $orders->add(1_000_000_000, 'JPY');
 $http->on('POST', 'checkout/sessions', 200, session($jpy));

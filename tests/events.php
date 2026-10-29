@@ -12,6 +12,7 @@
 require __DIR__ . '/lib/bootstrap.php';
 
 use mindstellar\billing\CallbackResult;
+use mindstellar\billing\Order;
 use mindstellar\stripe\StripeGateway;
 use mindstellar\stripe\Verified;
 
@@ -85,6 +86,36 @@ pin('an order of another gateway', CallbackResult::OUTCOME_IGNORED, $r->getOutco
 $r = $decide(event('checkout.session.completed', session($order, array('metadata' => array('order_id' => '999', 'site' => SITE), 'client_reference_id' => '999'))));
 pin('an order that does not exist', CallbackResult::OUTCOME_IGNORED, $r->getOutcome());
 
+harness_section('a payment for a closed order is refunded');
+
+$closed = new MemoryOrders();
+$gw     = fake_gateway($http, $closed);
+$late   = static fn (Order $o): CallbackResult => $gw->handleCallback(array(StripeGateway::TRUSTED => Verified::event(event('checkout.session.completed', session($o)))));
+$failed = $closed->add(9_990_000, 'USD', 'cs_test_abc1', Order::STATUS_FAILED);
+$http->on('POST', 'refunds', 200, array('id' => 're_late1', 'status' => 'succeeded'));
+$r = $late($failed);
+pin('a paid session for an order closed as failed is not reported as paid', array(CallbackResult::OUTCOME_IGNORED, 'payment for a closed order; refunded'), array($r->getOutcome(), $r->getMessage()));
+pin('it is refunded at Stripe at once, through its payment intent', array('https://api.stripe.com/v1/refunds', 'pi_test_1'), array(end($http->requests)['url'], $http->lastParams()['payment_intent'] ?? null));
+pin('keyed on the order', 'closed-order-1-' . SITE, end($http->requests)['headers']['Idempotency-Key'] ?? null);
+pin('the refund is noted on the order', 're_late1', $closed->find(1)->meta(StripeGateway::META_CLOSED_REFUND));
+$calls = count($http->requests);
+pin('a replay asks for no second refund', array('payment for a closed order was already handled', $calls), array($late($closed->find(1))->getMessage(), count($http->requests)));
+$cancelled = $closed->add(9_990_000, 'USD', 'cs_test_abc2', Order::STATUS_CANCELLED);
+pin('a cancelled order too', 'payment for a closed order; refunded', $late($cancelled)->getMessage());
+$refused = $closed->add(9_990_000, 'USD', 'cs_test_abc3', Order::STATUS_CANCELLED);
+$http->on('POST', 'refunds', 400, array('error' => array('message' => 'Charge has been disputed.')));
+pin('a refund Stripe refuses goes on to core as paid, which logs it for the admin', array(CallbackResult::OUTCOME_PAID, 'refused'), array($late($refused)->getOutcome(), $closed->find(3)->meta(StripeGateway::META_CLOSED_REFUND)));
+$down = $closed->add(9_990_000, 'USD', 'cs_test_abc4', Order::STATUS_CANCELLED);
+$http->down('POST', 'refunds');
+try {
+    $late($down);
+    $thrown = 'nothing';
+} catch (Throwable $e) {
+    $thrown = $e->getMessage();
+}
+pin('a refund that could not be asked for throws, so it is retried', array('Stripe could not be reached: timeout', null), array($thrown, $closed->find(4)->meta(StripeGateway::META_CLOSED_REFUND)));
+unset($http->routes['POST refunds']);
+
 harness_section('the webhook');
 
 $orders  = new MemoryOrders();
@@ -143,7 +174,7 @@ check('even when the queue is down too, Stripe is told to retry', $noQueue->hand
 
 harness_section('not configured');
 
-$bare = fake_gateway($http, $orders, array('webhook' => ''));
+$bare = fake_gateway($http, $orders, array('mode' => 'live', 'webhook' => ''));
 deliver($paid);
 $r = $bare->handleCallback(array());
 pin('without a webhook secret nothing is settled', CallbackResult::OUTCOME_IGNORED, $r->getOutcome());

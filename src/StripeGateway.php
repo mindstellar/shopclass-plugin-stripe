@@ -34,6 +34,9 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
     /** Order meta key for the mode a payment was made in. */
     public const META_LIVEMODE = 'stripe_livemode';
 
+    /** Order meta key set once a payment for an order already closed has been refunded. */
+    public const META_CLOSED_REFUND = 'stripe_closed_refund';
+
     /** Request key holding a Verified object. */
     public const TRUSTED = 'stripe_verified';
 
@@ -86,6 +89,12 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
         return $this->config->name;
     }
 
+    /** Where Settings > Billing links to set this method up. */
+    public function settingsUrl(): ?string
+    {
+        return osc_settings_page_url(Plugin::PAGE);
+    }
+
     /**
      * The currencies listed in settings, or the billing currency when none are.
      *
@@ -101,14 +110,20 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
     }
 
     /**
-     * Offered at checkout once the active mode has both keys and Stripe takes the billing
-     * currency. In test mode only a signed-in admin sees it, so a live site cannot hand out free credits.
+     * Offered at checkout once the active mode has both keys and a currency to charge. Core offers it
+     * only for an order in one of getSupportedCurrencies(); Shopclass 7.0 does not, so there it also
+     * needs the billing currency. In test mode only a signed-in admin sees it, so a live site cannot hand out free credits.
      *
      * @return bool
      */
     public function isConfigured(): bool
     {
-        if (!$this->hasKeys() || !in_array($this->config->billingCurrency, $this->getSupportedCurrencies(), true)) {
+        $currencies = $this->getSupportedCurrencies();
+        if (!$this->hasKeys() || $currencies === array()) {
+            return false;
+        }
+        // Shopclass 7.1 lists credit-package gateways by the billing currency (osc_billing_gateways()); 7.0 does not.
+        if (!function_exists('osc_billing_gateways') && !in_array($this->config->billingCurrency, $currencies, true)) {
             return false;
         }
 
@@ -116,13 +131,14 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
     }
 
     /**
-     * Whether the active mode has both keys. Webhooks and lookups need only this.
+     * Whether the active mode has a secret key, and in live mode a webhook secret too.
+     * Test mode works without one: the buyer's return settles the payment.
      *
      * @return bool
      */
     public function hasKeys(): bool
     {
-        return $this->config->secretKey !== '' && $this->config->webhookSecret !== '';
+        return $this->config->secretKey !== '' && ($this->config->webhookSecret !== '' || !$this->config->live());
     }
 
     /**
@@ -150,7 +166,7 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
                     'currency'     => strtolower($currency),
                     'unit_amount'  => $minor,
                     'product_data' => array(
-                        'name' => sprintf(__('%d credits', 'stripe'), $order->getCredits()),
+                        'name' => self::describe($order),
                     ),
                 ),
             )),
@@ -255,10 +271,27 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
         }
         if ($status === 'pending' || $status === 'requires_action') {
             // The charge.refunded webhook settles the order once Stripe finishes.
-            return CallbackResult::ignored('Stripe is still processing the refund; the order updates when it completes.');
+            return self::pendingRefund($order, (string) $refund['id'], 'Stripe is still processing the refund; the order updates when it completes.');
         }
 
         return CallbackResult::ignored('Stripe did not accept the refund' . ($status !== '' ? ' (' . $status . ')' : ''));
+    }
+
+    /**
+     * A refund the provider accepted but is still processing. Older cores have no
+     * refundPending(), so they get ignored().
+     *
+     * @param Order  $order
+     * @param string $id      The provider's refund id
+     * @param string $message
+     *
+     * @return CallbackResult
+     */
+    private static function pendingRefund(Order $order, string $id, string $message): CallbackResult
+    {
+        return method_exists(CallbackResult::class, 'refundPending')
+            ? CallbackResult::refundPending($order->getId(), $message, $id)
+            : CallbackResult::ignored($message);
     }
 
     /**
@@ -275,7 +308,8 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
         if (!preg_match('/^(pi|cs)_[A-Za-z0-9_]+$/', $ref) || !str_starts_with($ref, 'pi_')) {
             return null;
         }
-        if (!in_array($order->getStatus(), array(Order::STATUS_PAID, Order::STATUS_REFUNDED), true)) {
+        $settled = defined('mindstellar\\billing\\Order::SETTLED') ? Order::SETTLED : array(Order::STATUS_PAID);
+        if (!in_array($order->getStatus(), array_merge($settled, array(Order::STATUS_REFUNDED)), true)) {
             return null;
         }
 
@@ -362,6 +396,9 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
      */
     private function webhook(): CallbackResult
     {
+        if ($this->config->webhookSecret === '') {
+            return CallbackResult::ignored('no webhook secret is set');
+        }
         [$body, $header] = ($this->input)();
         if (!Signature::verify($body, $header, $this->config->webhookSecret)) {
             return CallbackResult::ignored('bad signature');
@@ -454,12 +491,81 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
         }
 
         // Stripe's own figures; core refuses them when they differ from the order.
-        return CallbackResult::paid(
+        $paid = CallbackResult::paid(
             $order->getId(),
             $intent ?? (string) $session['id'],
             Money::toMicros((int) ($session['amount_total'] ?? -1), $currency),
             $currency
         );
+
+        return $intent !== null && in_array($order->getStatus(), array(Order::STATUS_FAILED, Order::STATUS_CANCELLED), true)
+            ? $this->refundClosed($order, $intent, $paid)
+            : $paid;
+    }
+
+    /**
+     * Give back money Stripe took for an order core had already closed. Done once per order; a
+     * refund Stripe could not be asked for throws, so it is retried. A refused one goes on to core,
+     * which logs the payment as "paid after close" for the admin.
+     *
+     * @param Order          $order
+     * @param string         $intent
+     * @param CallbackResult $paid
+     *
+     * @return CallbackResult
+     * @throws HttpException when Stripe cannot be reached or fails
+     */
+    private function refundClosed(Order $order, string $intent, CallbackResult $paid): CallbackResult
+    {
+        if ($order->meta(self::META_CLOSED_REFUND) !== null) {
+            return CallbackResult::ignored('payment for a closed order was already handled');
+        }
+        try {
+            $refund = $this->api->createRefund(
+                array(
+                    'payment_intent' => $intent,
+                    'metadata'       => array('order_id' => (string) $order->getId(), 'site' => $this->config->siteId),
+                ),
+                'closed-order-' . $order->getId() . '-' . $this->config->siteId
+            );
+        } catch (HttpException $e) {
+            $code = $e->getCode();
+            if ($code < 400 || $code >= 500 || $code === 401) {
+                throw $e;
+            }
+            $this->rememberClosed($order->getId(), 'refused');
+            error_log('Stripe: payment ' . $intent . ' for closed order #' . $order->getId() . ' could not be refunded: ' . self::short($e->getMessage()));
+
+            return $paid;
+        }
+
+        $refundId = (string) ($refund['id'] ?? '');
+        if (!str_starts_with($refundId, 're_')) {
+            throw new HttpException('Stripe did not refund payment ' . $intent);
+        }
+        $this->rememberClosed($order->getId(), $refundId);
+        error_log('Stripe: payment ' . $intent . ' for order #' . $order->getId() . ' arrived after the order was closed and was refunded.');
+
+        return CallbackResult::ignored('payment for a closed order; refunded');
+    }
+
+    /**
+     * Note on the order that its late payment was handled.
+     *
+     * @param int    $orderId
+     * @param string $value
+     *
+     * @return void
+     */
+    private function rememberClosed(int $orderId, string $value): void
+    {
+        try {
+            if (!$this->orders->setMeta($orderId, self::META_CLOSED_REFUND, $value)) {
+                error_log('Stripe: could not store the refund on order #' . $orderId);
+            }
+        } catch (Throwable $e) {
+            error_log('Stripe: could not store the refund on order #' . $orderId . ': ' . $e->getMessage());
+        }
     }
 
     /**
@@ -648,6 +754,22 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
         }
 
         return CheckoutIntent::redirect($this->config->cancelUrl);
+    }
+
+    /**
+     * What the buyer sees they are paying for: a goods order's label on a core that has one, else the credits.
+     *
+     * @param Order $order
+     *
+     * @return string
+     */
+    private static function describe(Order $order): string
+    {
+        if (method_exists($order, 'isGoods') && $order->isGoods()) {
+            return mb_substr($order->getLabel(), 0, 250);
+        }
+
+        return sprintf(__('%d credits', 'stripe'), $order->getCredits());
     }
 
     /**

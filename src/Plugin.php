@@ -57,7 +57,7 @@ final class Plugin
      */
     public static function uninstall(): void
     {
-        foreach (array_keys(SettingsPageRegistry::instance()->fields(self::PAGE)) as $name) {
+        foreach (array_keys(self::core(SettingsPageRegistry::class)->fields(self::PAGE)) as $name) {
             osc_delete_preference($name, self::PAGE);
         }
     }
@@ -77,17 +77,32 @@ final class Plugin
     }
 
     /**
+     * A core registry: getInstance() on Shopclass 7.0, instance() on 6.4.
+     *
+     * @param class-string $class
+     *
+     * @return mixed
+     */
+    private static function core(string $class)
+    {
+        return method_exists($class, 'getInstance') ? $class::getInstance() : $class::instance();
+    }
+
+    /**
      * Register the gateway while billing is on, and hand it back.
+     *
+     * @param PaymentGatewayRegistry|null $registry Passed by core's register_payment_gateways hook
      *
      * @return StripeGateway|null
      */
-    public static function register(): ?StripeGateway
+    public static function register($registry = null): ?StripeGateway
     {
         if (!osc_billing_enabled()) {
             return null;
         }
         $gateway = self::gateway();
-        PaymentGatewayRegistry::instance()->register($gateway);
+        $registry = $registry instanceof PaymentGatewayRegistry ? $registry : self::core(PaymentGatewayRegistry::class);
+        $registry->register($gateway);
 
         return $gateway;
     }
@@ -113,14 +128,18 @@ final class Plugin
             osc_redirect_to(osc_user_login_url());
         }
 
-        self::settleReturn(
+        $status = self::settleReturn(
             self::register(),
             new CoreOrderStore(),
             Params::getParamInt('order'),
             (int) osc_logged_user_id(),
             Params::getParamString('session_id')
         );
-        osc_redirect_to(osc_billing_enabled() ? osc_billing_orders_url() : osc_base_url());
+        if (!osc_billing_enabled()) {
+            osc_redirect_to(osc_base_url());
+        }
+        $orderId = Params::getParamInt('order');
+        osc_redirect_to($status !== '' && function_exists('osc_billing_order_return_url') ? osc_billing_order_return_url($orderId) : osc_billing_orders_url());
     }
 
     /**
@@ -161,7 +180,7 @@ final class Plugin
 
         $now   = $orders->find($order->getId());
         $after = $now === null ? '' : $now->getStatus();
-        self::flashOutcome($order->getId(), $before, $after);
+        self::flashOutcome($order->getId(), $before, $after, method_exists($order, 'isGoods') && $order->isGoods());
 
         return $after;
     }
@@ -172,15 +191,19 @@ final class Plugin
      * @param int    $orderId
      * @param string $before Status before the return page ran
      * @param string $after  Status now
+     * @param bool   $goods  The order is for goods, not credits
      *
      * @return void
      */
-    public static function flashOutcome(int $orderId, string $before, string $after): void
+    public static function flashOutcome(int $orderId, string $before, string $after, bool $goods = false): void
     {
-        if ($after === Order::STATUS_PAID) {
-            osc_add_flash_ok_message($before === Order::STATUS_PAID
+        $settled = defined('mindstellar\\billing\\Order::SETTLED') ? Order::SETTLED : array(Order::STATUS_PAID);
+        if (in_array($after, $settled, true)) {
+            osc_add_flash_ok_message(in_array($before, $settled, true)
                 ? sprintf(__('Order #%d is paid.', 'stripe'), $orderId)
-                : sprintf(__('Payment for order #%d received. Credits added.', 'stripe'), $orderId));
+                : ($goods
+                    ? sprintf(__('Payment received for order #%d.', 'stripe'), $orderId)
+                    : sprintf(__('Payment for order #%d received. Credits added.', 'stripe'), $orderId)));
         } elseif ($after === Order::STATUS_PENDING) {
             osc_add_flash_info_message(sprintf(__('Payment for order #%d is processing. Credits are added once Stripe confirms it.', 'stripe'), $orderId));
         } else {
