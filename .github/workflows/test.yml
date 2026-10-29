@@ -1,4 +1,4 @@
-# Runs the unit tests on PHP 8.0 against core's release/7.0 and on PHP 8.3 against develop
+# Runs the unit tests on PHP 8.0 against core's release/7.0 and on PHP 8.2 and 8.5 against develop
 # (SHOPCLASS_CORE_REF overrides it). The integration test needs 7.1, so it runs on develop only.
 name: test
 
@@ -18,7 +18,9 @@ jobs:
         include:
           - php: '8.0'
             core: release/7.0
-          - php: '8.3'
+          - php: '8.2'
+            core: develop
+          - php: '8.5'
             core: develop
     services:
       mysql:
