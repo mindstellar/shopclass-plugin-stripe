@@ -7,14 +7,14 @@
 
 /**
  * Loads the plugin's classes and core's billing value classes, with no database and no
- * network. Core is found through SHOPCLASS_CORE, or a sibling checkout named osclass.
+ * network. Core is found through SHOPCLASS_CORE, or a sibling checkout named shopclass.
  */
 
 require_once __DIR__ . '/harness.php';
 
 function core_path(): string
 {
-    $path = getenv('SHOPCLASS_CORE') ?: dirname(__DIR__, 3) . '/osclass';
+    $path = getenv('SHOPCLASS_CORE') ?: dirname(__DIR__, 3) . '/shopclass';
     if (!is_file($path . '/oc-includes/osclass/classes/billing/RefundableGateway.php')) {
         fwrite(STDERR, "Shopclass core not found at $path. Set SHOPCLASS_CORE to a checkout of 6.4.0 or later.\n");
         exit(2);
