@@ -4,7 +4,7 @@ Take card payments for shop orders and credit packages through [Stripe Checkout]
 
 ## Requirements
 
-- Shopclass 6.4.0 or later, with billing turned on
+- Shopclass 7.0.0 or later (tested up to 7.1), with billing turned on
 - PHP 8.0 or later, with the curl extension
 - A Stripe account
 - Cron running (for retries and the daily check of pending orders)
