@@ -12,12 +12,12 @@
 require __DIR__ . '/lib/bootstrap.php';
 // Shopclass 7.0 registries extend a base class and check currency codes; earlier cores have neither.
 foreach (array('container/ContainerInterface.php', 'container/NotFoundException.php', 'container/Container.php', 'base/Registry.php', 'currency/CurrencyCode.php') as $file) {
-    if (is_file(core_path() . '/oc-includes/osclass/classes/' . $file)) {
-        require_once core_path() . '/oc-includes/osclass/classes/' . $file;
+    if (is_file(core_class_file(core_path(), $file))) {
+        require_once core_class_file(core_path(), $file);
     }
 }
-require_once core_path() . '/oc-includes/osclass/classes/billing/PaymentGatewayRegistry.php';
-require_once core_path() . '/oc-includes/osclass/classes/job/Job.php';
+require_once core_class_file(core_path(), 'billing/PaymentGatewayRegistry.php');
+require_once core_class_file(core_path(), 'job/Job.php');
 
 use mindstellar\billing\CallbackResult;
 use mindstellar\billing\Order;

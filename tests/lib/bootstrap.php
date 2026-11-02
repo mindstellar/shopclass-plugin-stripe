@@ -15,7 +15,7 @@ require_once __DIR__ . '/harness.php';
 function core_path(): string
 {
     $path = getenv('SHOPCLASS_CORE') ?: dirname(__DIR__, 3) . '/shopclass';
-    if (!is_file($path . '/oc-includes/osclass/classes/billing/RefundableGateway.php')) {
+    if (!is_file(core_class_file($path, 'billing/RefundableGateway.php'))) {
         fwrite(STDERR, "Shopclass core not found at $path. Set SHOPCLASS_CORE to a checkout of 6.4.0 or later.\n");
         exit(2);
     }
@@ -28,13 +28,13 @@ if (!defined('ABS_PATH')) {
 }
 
 foreach (array('PaymentGateway', 'RefundableGateway', 'DashboardLinkGateway', 'CallbackResult', 'CheckoutIntent', 'Order') as $class) {
-    require_once core_path() . '/oc-includes/osclass/classes/billing/' . $class . '.php';
+    require_once core_class_file(core_path(), 'billing/' . $class . '.php');
 }
 
 // Other core classes the plugin names, such as PaymentGatewayRegistry, load from the same checkout.
 spl_autoload_register(static function (string $class): void {
     foreach (array('mindstellar\\billing\\' => 'billing', 'mindstellar\\base\\' => 'base', 'mindstellar\\currency\\' => 'currency') as $prefix => $dir) {
-        $file = core_path() . '/oc-includes/osclass/classes/' . $dir . '/' . substr($class, strlen($prefix)) . '.php';
+        $file = core_class_file(core_path(), $dir . '/' . substr($class, strlen($prefix)) . '.php');
         if (strncmp($class, $prefix, strlen($prefix)) === 0 && is_file($file)) {
             require $file;
         }
