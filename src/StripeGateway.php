@@ -17,7 +17,6 @@ use mindstellar\billing\CallbackResult;
 use mindstellar\billing\CheckoutIntent;
 use mindstellar\billing\DashboardLinkGateway;
 use mindstellar\billing\Order;
-use mindstellar\billing\RefundableGateway;
 use mindstellar\stripe\Http\HttpClient;
 use mindstellar\stripe\Http\HttpException;
 use Throwable;
@@ -26,7 +25,7 @@ use Throwable;
  * Stripe Checkout as a Shopclass payment gateway. Orders settle only from signed webhooks or
  * data fetched from Stripe, always through Billing::handleCallback() so core's checks apply.
  */
-final class StripeGateway implements RefundableGateway, DashboardLinkGateway
+final class StripeGateway implements Refunds, DashboardLinkGateway
 {
     /** Gateway id stored on every order. */
     public const ID = 'stripe';
@@ -239,21 +238,63 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
      */
     public function refund(Order $order): CallbackResult
     {
+        return $this->sendRefund($order, array(), 'refund-order-' . $order->getId() . '-' . $this->config->siteId, true);
+    }
+
+    /**
+     * Refund part of a paid order. Core passes its own key per refund, so a retried request refunds once.
+     *
+     * @param Order  $order
+     * @param int    $amount Micros, in the order's currency
+     * @param string $key    Core's refund key, such as order:12:refund:2
+     *
+     * @return CallbackResult refunded() or refundPending() with the refund id once Stripe took it
+     */
+    public function refundPart(Order $order, int $amount, string $key): CallbackResult
+    {
+        if (!preg_match('/^[A-Za-z0-9:_-]{1,40}$/', $key)) {
+            return CallbackResult::ignored('malformed refund key');
+        }
+        if ($amount <= 0 || $amount > $order->getAmount()) {
+            return CallbackResult::ignored('the refund must be more than 0 and at most the order total');
+        }
+        $minor = Money::toMinor($amount, $order->getCurrency());
+        if ($minor === null || $minor === 0) {
+            return CallbackResult::ignored('amount cannot be refunded in ' . strtoupper($order->getCurrency()));
+        }
+
+        return $this->sendRefund($order, array('amount' => $minor, 'refund_key' => $key), 'refund-' . $key . '-' . $this->config->siteId, false);
+    }
+
+    /**
+     * Ask Stripe for a refund of the order's payment: in full, or the amount in $part.
+     *
+     * @param Order               $order
+     * @param array<string,mixed> $part           amount (minor units) and refund_key, or empty for a full refund
+     * @param string              $idempotencyKey
+     * @param bool                $full
+     *
+     * @return CallbackResult
+     */
+    private function sendRefund(Order $order, array $part, string $idempotencyKey, bool $full): CallbackResult
+    {
         try {
             $intent = $this->paymentIntentOf($order);
             if ($intent === null) {
                 return CallbackResult::ignored('no Stripe payment found for this order');
             }
-            $refund = $this->api->createRefund(
-                array(
-                    'payment_intent' => $intent,
-                    'metadata'       => array('order_id' => (string) $order->getId(), 'site' => $this->config->siteId),
-                ),
-                'refund-order-' . $order->getId() . '-' . $this->config->siteId
-            );
+            $meta = array('order_id' => (string) $order->getId(), 'site' => $this->config->siteId);
+            if (isset($part['refund_key'])) {
+                $meta['refund_key'] = $part['refund_key'];
+            }
+            $params = array('payment_intent' => $intent);
+            if (isset($part['amount'])) {
+                $params['amount'] = $part['amount'];
+            }
+            $refund = $this->api->createRefund($params + array('metadata' => $meta), $idempotencyKey);
         } catch (HttpException $e) {
             $code = $e->getCode();
-            if ($code >= 400 && $code < 500) {
+            if ($full && $code >= 400 && $code < 500) {
                 // Stripe replays a refused request under the same idempotency key for 24 hours.
                 return CallbackResult::ignored(rtrim(self::short($e->getMessage()), '.')
                     . '. Stripe gives the same answer for this order for 24 hours; refund it in the Stripe dashboard instead.');
@@ -270,8 +311,8 @@ final class StripeGateway implements RefundableGateway, DashboardLinkGateway
             return CallbackResult::refunded($order->getId(), (string) $refund['id']);
         }
         if ($status === 'pending' || $status === 'requires_action') {
-            // The charge.refunded webhook settles the order once Stripe finishes.
-            return self::pendingRefund($order, (string) $refund['id'], 'Stripe is still processing the refund; the order updates when it completes.');
+            // The charge.refunded webhook settles a full refund once Stripe finishes.
+            return self::pendingRefund($order, (string) $refund['id'], 'Stripe is still processing the refund' . ($full ? '; the order updates when it completes.' : '.'));
         }
 
         return CallbackResult::ignored('Stripe did not accept the refund' . ($status !== '' ? ' (' . $status . ')' : ''));

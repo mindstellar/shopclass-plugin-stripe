@@ -29,6 +29,8 @@ $req = end($http->requests);
 pin('an accepted refund refunds the order', CallbackResult::OUTCOME_REFUNDED, $r->getOutcome());
 pin('with the refund id', array(1, 're_1'), array($r->getOrderId(), $r->getExternalRef()));
 pin('of the order\'s payment intent', 'pi_test_1', $http->lastParams()['payment_intent']);
+check('in full: no amount is sent', !array_key_exists('amount', $http->lastParams()));
+check('offers part refunds only on a core that has them', ($gateway instanceof \mindstellar\billing\PartialRefundableGateway) === interface_exists('mindstellar\\billing\\PartialRefundableGateway'));
 pin('with an idempotency key, so a double click refunds once', 'refund-order-1-' . SITE, $req['headers']['Idempotency-Key']);
 
 foreach (array('pending', 'requires_action') as $status) {
