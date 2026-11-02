@@ -275,6 +275,7 @@ final class StripeGateway implements Refunds, DashboardLinkGateway
      * @param bool                $full
      *
      * @return CallbackResult
+     * @throws HttpException when a part refund's outcome is unknown (no answer, or a 5xx), so core keeps its key for the retry
      */
     private function sendRefund(Order $order, array $part, string $idempotencyKey, bool $full): CallbackResult
     {
@@ -294,6 +295,9 @@ final class StripeGateway implements Refunds, DashboardLinkGateway
             $refund = $this->api->createRefund($params + array('metadata' => $meta), $idempotencyKey);
         } catch (HttpException $e) {
             $code = $e->getCode();
+            if (!$full && ($code === 0 || $code >= 500)) {
+                throw $e;
+            }
             if ($full && $code >= 400 && $code < 500) {
                 // Stripe replays a refused request under the same idempotency key for 24 hours.
                 return CallbackResult::ignored(rtrim(self::short($e->getMessage()), '.')

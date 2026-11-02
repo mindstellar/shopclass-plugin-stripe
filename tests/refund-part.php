@@ -52,8 +52,19 @@ pin('a failed part refund changes nothing', array(CallbackResult::OUTCOME_IGNORE
 $http->on('POST', 'refunds', 400, array('error' => array('message' => 'Refund amount ($99.00) is greater than unrefunded amount on charge ($7.49)')));
 pin('a refusal comes back with Stripe\'s reason', 'Stripe answered 400: Refund amount ($99.00) is greater than unrefunded amount on charge ($7.49)', $gateway->refundPart($order, 9_000_000, 'order:1:refund:5')->getMessage());
 
+$throws = static function (callable $fn): bool {
+    try {
+        $fn();
+    } catch (Throwable $e) {
+        return true;
+    }
+
+    return false;
+};
 $http->down('POST', 'refunds');
-pin('Stripe down is ignored with a reason', 'Stripe could not be reached: timeout', $gateway->refundPart($order, 1_000_000, 'order:1:refund:6')->getMessage());
+check('Stripe down throws, so core keeps the key for the retry', $throws(static fn () => $gateway->refundPart($order, 1_000_000, 'order:1:refund:6')));
+$http->on('POST', 'refunds', 503, array('error' => array('message' => 'Server error')));
+check('a Stripe 5xx throws too', $throws(static fn () => $gateway->refundPart($order, 1_000_000, 'order:1:refund:6')));
 
 harness_section('refused before Stripe is asked');
 

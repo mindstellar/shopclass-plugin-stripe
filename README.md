@@ -48,13 +48,14 @@ Saved keys are never shown again. Leave a key box blank to keep it.
 - A payment for an order already closed (failed or cancelled) is refunded at Stripe. If Stripe refuses, it shows as "paid after close" in Tools → Activity log.
 - Core checks amount, currency and owner on every path. A replayed event credits nothing.
 - Refund: open the order under Billing → Orders and press Refund. The whole payment is refunded and core takes the credits back. A full refund made in the Stripe dashboard is recorded the same way.
+- On core 7.1, **Refund part** on a shop order sends part of the money back through Stripe. The site records it with a credit note, and the order shows **Partly refunded**.
 
 ## Notes / limits
 
 - The plugin starts in test mode, and an admin notice says so. In test mode only a signed-in admin sees Stripe at checkout.
 - Test with Stripe's [test cards](https://docs.stripe.com/testing), such as `4242 4242 4242 4242`.
 - Live mode needs the webhook secret. In test mode it is optional, so a local site Stripe cannot reach still works.
-- Partial refunds change nothing on the site.
+- A partial refund made in the Stripe dashboard changes nothing on the site. Use **Refund part** instead.
 - Several sites can share one Stripe account. Each site ignores events tagged for other sites. Give each its own webhook endpoint.
 - Keys, mode and site id are preferences in the `stripe` section. Order references are kept in order meta. No table of its own.
 
