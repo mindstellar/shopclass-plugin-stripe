@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.8
 
 ### New
 - Part refunds from the admin go through Stripe on Shopclass 7.1.
