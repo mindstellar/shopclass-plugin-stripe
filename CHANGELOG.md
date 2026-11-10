@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9
+
+### Changed
+- On Shopclass 7.1 test mode shows in core's shared notice, on the dashboard, billing and Stripe's settings pages; older cores keep the banner.
+
 ## 0.1.8
 
 ### New

@@ -33,8 +33,8 @@ foreach (array('PaymentGateway', 'RefundableGateway', 'DashboardLinkGateway', 'C
 
 // Other core classes the plugin names, such as PaymentGatewayRegistry, load from the same checkout.
 spl_autoload_register(static function (string $class): void {
-    foreach (array('mindstellar\\billing\\' => 'billing', 'mindstellar\\base\\' => 'base', 'mindstellar\\currency\\' => 'currency') as $prefix => $dir) {
-        $file = core_class_file(core_path(), $dir . '/' . substr($class, strlen($prefix)) . '.php');
+    foreach (array('mindstellar\\billing\\' => 'billing', 'mindstellar\\base\\' => 'base', 'mindstellar\\currency\\' => 'currency', 'mindstellar\\event\\' => 'core/event') as $prefix => $dir) {
+        $file = core_class_file(core_path(), $dir . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php');
         if (strncmp($class, $prefix, strlen($prefix)) === 0 && is_file($file)) {
             require $file;
         }
