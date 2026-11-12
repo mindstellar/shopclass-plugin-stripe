@@ -86,3 +86,9 @@ if (class_exists(\mindstellar\billing\event\PaymentTestModes::class)) {
 } else {
     osc_add_hook('admin_page_header', array(Plugin::class, 'adminNotice'), 10);
 }
+if (class_exists(\mindstellar\billing\event\PaymentKeysMissing::class)) {
+    osc_add_filter('admin_payment_keys_missing', static fn (array $missing): array => !osc_billing_enabled()
+        || trim((string) osc_settings_value(Plugin::PAGE, (osc_settings_value(Plugin::PAGE, 'mode') === 'live' ? 'live' : 'test') . '_secret_key')) !== ''
+        ? $missing
+        : $missing + array('Stripe' => osc_settings_page_url(Plugin::PAGE)));
+}
