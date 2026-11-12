@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10
+
+### New
+- On Shopclass 7.1 the admin bell warns when Stripe is on but has no secret key for its mode.
+
 ## 0.1.9
 
 ### Changed
