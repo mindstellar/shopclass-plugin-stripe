@@ -3,7 +3,7 @@
 Plugin Name: Stripe Payment
 Plugin URI: https://github.com/mindstellar/shopclass-plugin-stripe
 Description: Take card payments for shop orders and credit packages through Stripe Checkout. Buyers pay on Stripe's hosted page; a signed webhook marks the order paid. Refunds from the admin.
-Version: 0.1.8
+Version: 0.1.9
 Author: Navjot Tomer (Mindstellar)
 Author URI: https://mindstellar.com
 Short Name: stripe
@@ -78,4 +78,11 @@ osc_add_hook('register_jobs', array(Plugin::class, 'registerJobs'));
 osc_add_hook('cron_daily', array(Plugin::class, 'daily'));
 osc_add_hook('job_gave_up', array(Plugin::class, 'jobGaveUp'));
 
-osc_add_hook('admin_page_header', array(Plugin::class, 'adminNotice'), 10);
+// Core 7.1 shows one shared notice for gateways in test mode; older cores get this plugin's own banner.
+if (class_exists(\mindstellar\billing\event\PaymentTestModes::class)) {
+    osc_add_filter('admin_payment_test_modes', static fn (array $modes): array => !osc_billing_enabled() || osc_settings_value(Plugin::PAGE, 'mode') === 'live'
+        ? $modes
+        : $modes + array('Stripe' => osc_settings_page_url(Plugin::PAGE)));
+} else {
+    osc_add_hook('admin_page_header', array(Plugin::class, 'adminNotice'), 10);
+}

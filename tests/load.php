@@ -15,6 +15,9 @@ $GLOBALS['__hooks']    = array();
 $GLOBALS['__routes']   = array();
 $GLOBALS['__settings'] = array();
 $GLOBALS['__install']  = null;
+$GLOBALS['__filters']  = array();
+$GLOBALS['__billing']  = true;
+$GLOBALS['__mode']     = 'test';
 
 function osc_plugin_path($file)
 {
@@ -35,6 +38,22 @@ function osc_register_settings_page($id, $spec)
 function osc_add_route_hook($id, $regexp, $url)
 {
     $GLOBALS['__routes'][$id] = array($regexp, $url);
+}
+function osc_add_filter($name, $fn, $priority = 10)
+{
+    $GLOBALS['__filters'][$name][] = $fn;
+}
+function osc_billing_enabled()
+{
+    return $GLOBALS['__billing'];
+}
+function osc_settings_value($page, $key)
+{
+    return $GLOBALS['__mode'];
+}
+function osc_settings_page_url($page)
+{
+    return 'https://example.test/oc-admin/?page=plugins&action=renderplugin&id=' . $page;
 }
 
 require __DIR__ . '/../index.php';
@@ -68,7 +87,19 @@ pin('jobs, the daily check and the give-up mail', array(
     array(array(Plugin::class, 'daily')),
     array(array(Plugin::class, 'jobGaveUp')),
 ), array($GLOBALS['__hooks']['register_jobs'] ?? null, $GLOBALS['__hooks']['cron_daily'] ?? null, $GLOBALS['__hooks']['job_gave_up'] ?? null));
-pin('the test-mode notice', array(array(Plugin::class, 'adminNotice')), $GLOBALS['__hooks']['admin_page_header'] ?? null);
+if (class_exists(\mindstellar\billing\event\PaymentTestModes::class)) {
+    pin('the test-mode notice is core\'s shared one', 1, count($GLOBALS['__filters']['admin_payment_test_modes'] ?? array()));
+    pin('and no banner of its own', null, $GLOBALS['__hooks']['admin_page_header'] ?? null);
+    $modes = $GLOBALS['__filters']['admin_payment_test_modes'][0];
+    pin('test mode names Stripe with its settings link', array('Stripe' => osc_settings_page_url(Plugin::PAGE)), $modes(array()));
+    $GLOBALS['__mode'] = 'live';
+    pin('live mode adds nothing', array(), $modes(array()));
+    $GLOBALS['__mode']    = 'test';
+    $GLOBALS['__billing'] = false;
+    pin('billing off adds nothing', array(), $modes(array()));
+} else {
+    pin('the test-mode notice', array(array(Plugin::class, 'adminNotice')), $GLOBALS['__hooks']['admin_page_header'] ?? null);
+}
 check('job types are namespaced', preg_match('/^[a-z0-9_]+\.[a-z0-9_.]+$/', Plugin::JOB_EVENT) && preg_match('/^[a-z0-9_]+\.[a-z0-9_.]+$/', Plugin::JOB_RECONCILE));
 
 exit(harness_result());
