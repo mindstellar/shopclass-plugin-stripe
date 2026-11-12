@@ -49,7 +49,7 @@ function osc_billing_enabled()
 }
 function osc_settings_value($page, $key)
 {
-    return $GLOBALS['__mode'];
+    return $key === 'mode' ? $GLOBALS['__mode'] : ($GLOBALS['__keys'][$key] ?? '');
 }
 function osc_settings_page_url($page)
 {
@@ -99,6 +99,19 @@ if (class_exists(\mindstellar\billing\event\PaymentTestModes::class)) {
     pin('billing off adds nothing', array(), $modes(array()));
 } else {
     pin('the test-mode notice', array(array(Plugin::class, 'adminNotice')), $GLOBALS['__hooks']['admin_page_header'] ?? null);
+}
+if (class_exists(\mindstellar\billing\event\PaymentKeysMissing::class)) {
+    $GLOBALS['__billing'] = true;
+    $missing = $GLOBALS['__filters']['admin_payment_keys_missing'][0];
+    pin('no key for the active mode names Stripe', array('Stripe' => osc_settings_page_url(Plugin::PAGE)), $missing(array()));
+    $GLOBALS['__keys'] = array('live_secret_key' => 'sk_live_x');
+    pin('a live key does not cover test mode', array('Stripe' => osc_settings_page_url(Plugin::PAGE)), $missing(array()));
+    $GLOBALS['__mode'] = 'live';
+    pin('the active mode has a key, so nothing', array(), $missing(array()));
+    $GLOBALS['__mode']    = 'test';
+    $GLOBALS['__keys']    = array();
+    $GLOBALS['__billing'] = false;
+    pin('billing off adds nothing', array(), $missing(array()));
 }
 check('job types are namespaced', preg_match('/^[a-z0-9_]+\.[a-z0-9_.]+$/', Plugin::JOB_EVENT) && preg_match('/^[a-z0-9_]+\.[a-z0-9_.]+$/', Plugin::JOB_RECONCILE));
 
