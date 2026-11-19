@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11
+
+### Changed
+- Admin pages are under Plugins → Stripe.
+
 ## 0.1.10
 
 ### New
